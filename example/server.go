@@ -1,12 +1,15 @@
-package gollectd
+package main
 
 import (
+	"fmt"
 	"log"
 	"net"
+
+	collectd "github.com/kimor79/gollectd"
 )
 
 // Listen for collectd network packets, parse , and send them over a channel
-func Listen(addr string, c chan Packet, typesdb string) {
+func Listen(addr string, c chan collectd.Packet, typesdb string) {
 	laddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		log.Fatalln("fatal: failed to resolve address", err)
@@ -17,7 +20,7 @@ func Listen(addr string, c chan Packet, typesdb string) {
 		log.Fatalln("fatal: failed to listen", err)
 	}
 
-	types, err := TypesDB(typesdb)
+	types, err := collectd.TypesDB(typesdb)
 	if err != nil {
 		log.Fatalln("fatal: failed to parse types.db", err)
 	}
@@ -33,7 +36,7 @@ func Listen(addr string, c chan Packet, typesdb string) {
 			continue
 		}
 
-		packets, err := Packets(buf[0:n], types)
+		packets, err := collectd.Packets(buf[0:n], types)
 		if err != nil {
 			log.Println("error: Failed to receive packet", err)
 			continue
@@ -42,5 +45,15 @@ func Listen(addr string, c chan Packet, typesdb string) {
 		for _, p := range *packets {
 			c <- p
 		}
+	}
+}
+
+func main() {
+	c := make(chan collectd.Packet)
+	go Listen("127.0.0.1:25826", c, "/usr/share/collectd/types.db")
+
+	for {
+		packet := <-c
+		fmt.Printf("%+v\n", packet)
 	}
 }

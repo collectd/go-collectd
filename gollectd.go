@@ -46,6 +46,20 @@ var ErrorUnsupported = errors.New("gollectd: Unsupported packet")
 var ErrorUnknownType = errors.New("gollectd: Unknown value type")
 var ErrorUnknownDataType = errors.New("gollectd: Unknown data source type")
 
+var ValueTypeNames = map[string]uint8{
+	"absolute": TypeAbsolute,
+	"counter":  TypeCounter,
+	"derive":   TypeDerive,
+	"gauge":    TypeGauge,
+}
+
+var ValueTypeValues = map[uint8]string{
+	TypeAbsolute: "absolute",
+	TypeCounter:  "counter",
+	TypeDerive:   "derive",
+	TypeGauge:    "gauge",
+}
+
 type Packet struct {
 	Hostname       string
 	Interval       uint64
@@ -69,9 +83,10 @@ type Type struct {
 type Types map[string][]Type
 
 type Value struct {
-	Name  string
-	Type  uint8
-	Value float64
+	Name     string
+	Type     uint8
+	TypeName string
+	Value    float64
 }
 
 func Packets(b []byte, types Types) (*[]Packet, error) {
@@ -179,6 +194,10 @@ func Packets(b []byte, types Types) (*[]Packet, error) {
 			for i, t := range valueTypes {
 				packetValue.Type = t
 
+				if typeName, ok := ValueTypeValues[t]; ok {
+					packetValue.TypeName = typeName
+				}
+
 				if _, ok := types[packet.Type]; ok {
 					packetValue.Name = types[packet.Type][i].Name
 				}
@@ -278,16 +297,9 @@ func TypesDB(path string) (Types, error) {
 
 			dsSpec.Name = dataSource[0]
 
-			switch dataSource[1] {
-			case "ABSOLUTE":
-				dsSpec.Type = TypeAbsolute
-			case "COUNTER":
-				dsSpec.Type = TypeCounter
-			case "DERIVE":
-				dsSpec.Type = TypeDerive
-			case "GAUGE":
-				dsSpec.Type = TypeGauge
-			default:
+			if dsType, ok := ValueTypeNames[strings.ToLower(dataSource[1])]; ok {
+				dsSpec.Type = dsType
+			} else {
 				// set ErrorUnknownDataType somehow
 				continue
 			}

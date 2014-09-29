@@ -7,7 +7,7 @@ import (
 
 func main() {
 	c := make(chan collectd.Packet)
-	go collectd.Listen("127.0.0.1:25826", c)
+	go collectd.Listen("127.0.0.1:25826", c, "/usr/share/collectd/types.db")
 
 	for {
 		packet := <-c

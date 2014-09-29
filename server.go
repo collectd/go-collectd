@@ -6,7 +6,7 @@ import (
 )
 
 // Listen for collectd network packets, parse , and send them over a channel
-func Listen(addr string, c chan Packet) {
+func Listen(addr string, c chan Packet, typesdb string) {
 	laddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		log.Fatalln("fatal: failed to resolve address", err)
@@ -15,6 +15,11 @@ func Listen(addr string, c chan Packet) {
 	conn, err := net.ListenUDP("udp", laddr)
 	if err != nil {
 		log.Fatalln("fatal: failed to listen", err)
+	}
+
+	types, err := TypesDB(typesdb)
+	if err != nil {
+		log.Fatalln("fatal: failed to parse types.db", err)
 	}
 
 	for {
@@ -28,7 +33,7 @@ func Listen(addr string, c chan Packet) {
 			continue
 		}
 
-		packets, err := Packets(buf[0:n])
+		packets, err := Packets(buf[0:n], types)
 		if err != nil {
 			log.Println("error: Failed to receive packet", err)
 			continue

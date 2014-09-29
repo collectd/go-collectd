@@ -3,9 +3,12 @@
 package gollectd
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"os"
+	"strings"
 )
 
 const (
@@ -41,6 +44,7 @@ const (
 var ErrorInvalid = errors.New("gollectd: Invalid packet")
 var ErrorUnsupported = errors.New("gollectd: Unsupported packet")
 var ErrorUnknownType = errors.New("gollectd: Unknown value type")
+var ErrorUnknownDataType = errors.New("gollectd: Unknown data source type")
 
 type Packet struct {
 	Hostname       string
@@ -55,13 +59,22 @@ type Packet struct {
 	Values         []Value
 }
 
+type Type struct {
+	Name string
+	Type uint8
+	Min  string
+	Max  string
+}
+
+type Types map[string][]Type
+
 type Value struct {
 	Name  string
 	Type  uint8
 	Value float64
 }
 
-func Packets(b []byte) (*[]Packet, error) {
+func Packets(b []byte, types Types) (*[]Packet, error) {
 	packets := make([]Packet, 0)
 
 	buf := bytes.NewBuffer(b)
@@ -166,6 +179,10 @@ func Packets(b []byte) (*[]Packet, error) {
 			for i, t := range valueTypes {
 				packetValue.Type = t
 
+				if _, ok := types[packet.Type]; ok {
+					packetValue.Name = types[packet.Type][i].Name
+				}
+
 				switch t {
 				case TypeAbsolute:
 					var value uint64
@@ -213,4 +230,74 @@ func Packets(b []byte) (*[]Packet, error) {
 	}
 
 	return &packets, nil
+}
+
+func TypesDB(path string) (Types, error) {
+	// See https://collectd.org/documentation/manpages/types.db.5.shtml
+
+	types := make(Types)
+
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	defer file.Close()
+
+	var dsSpec Type
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.Replace(scanner.Text(), "\t", " ", -1)
+		fields := strings.Split(line, " ")
+
+		if len(fields) < 2 {
+			continue
+		}
+
+		if string(fields[0]) == "#" {
+			continue
+		}
+
+		dataSet := fields[0]
+		types[dataSet] = make([]Type, 0)
+
+		for _, dataSources := range fields[1:] {
+			if len(dataSources) == 0 {
+				continue
+			}
+
+			dataSources = strings.Trim(dataSources, ",")
+
+			dataSource := strings.Split(dataSources, ":")
+
+			if len(dataSource) != 4 {
+				// set ErrorUnknownDataType somehow
+				continue
+			}
+
+			dsSpec.Name = dataSource[0]
+
+			switch dataSource[1] {
+			case "ABSOLUTE":
+				dsSpec.Type = TypeAbsolute
+			case "COUNTER":
+				dsSpec.Type = TypeCounter
+			case "DERIVE":
+				dsSpec.Type = TypeDerive
+			case "GAUGE":
+				dsSpec.Type = TypeGauge
+			default:
+				// set ErrorUnknownDataType somehow
+				continue
+			}
+
+			dsSpec.Min = dataSource[2]
+			dsSpec.Max = dataSource[3]
+
+			types[dataSet] = append(types[dataSet], dsSpec)
+		}
+	}
+
+	return types, nil
 }

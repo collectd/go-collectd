@@ -89,6 +89,22 @@ type Value struct {
 	Value    float64
 }
 
+func (p Packet) FormatName() string {
+	metricName := p.Hostname + "/" + p.Plugin
+
+	if len(p.PluginInstance) > 0 {
+		metricName += "-" + p.PluginInstance
+	}
+
+	metricName += "/" + p.Type
+
+	if len(p.TypeInstance) > 0 {
+		metricName += "-" + p.TypeInstance
+	}
+
+	return metricName
+}
+
 func Packets(b []byte, types Types) (*[]Packet, error) {
 	packets := make([]Packet, 0)
 

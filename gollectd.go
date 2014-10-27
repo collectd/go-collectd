@@ -3,11 +3,11 @@
 package gollectd
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"os"
+	"fmt"
+	"io/ioutil"
 	"strings"
 )
 
@@ -80,7 +80,7 @@ type Type struct {
 	Max  string
 }
 
-type Types map[string][]Type
+type Types map[string][]*Type
 
 type Value struct {
 	Name     string
@@ -122,10 +122,8 @@ func Packets(b []byte, types Types) (*[]Packet, error) {
 	var valueTypes []uint8
 
 	for buf.Len() > 0 {
-		err = binary.Read(buf, binary.BigEndian, &packetHeader)
-		if err != nil {
-			return nil, err
-		}
+		packetHeader.PartType = binary.BigEndian.Uint16(buf.Next(2))
+		packetHeader.PartLength = binary.BigEndian.Uint16(buf.Next(2))
 
 		if packetHeader.PartLength < 5 {
 			return nil, ErrorInvalid
@@ -267,65 +265,76 @@ func Packets(b []byte, types Types) (*[]Packet, error) {
 	return &packets, nil
 }
 
-func TypesDB(path string) (Types, error) {
+func TypesDBFile(path string) (Types, error) {
 	// See https://collectd.org/documentation/manpages/types.db.5.shtml
 
-	types := make(Types)
-
-	file, err := os.Open(path)
+	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	defer file.Close()
+	return TypesDB(b)
+}
 
-	var dsSpec Type
+func TypesDB(b []byte) (Types, error) {
+	types := make(Types)
+	content := string(b)
+	lines := strings.Split(content, "\n")
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.Replace(scanner.Text(), "\t", " ", -1)
-		fields := strings.Split(line, " ")
-
-		if len(fields) < 2 {
+	for i, line := range lines {
+		// Skip empty & comment lines
+		if line == "" || line[0] == '#' {
 			continue
 		}
-
-		if string(fields[0]) == "#" {
-			continue
+		dataSetName, dataSetSources, err := ParseDataSet(line)
+		if err != nil {
+			return nil, fmt.Errorf("line %d: %s", i+1, err.Error())
 		}
 
-		dataSet := fields[0]
-		types[dataSet] = make([]Type, 0)
-
-		for _, dataSources := range fields[1:] {
-			if len(dataSources) == 0 {
-				continue
-			}
-
-			dataSources = strings.Trim(dataSources, ",")
-
-			dataSource := strings.Split(dataSources, ":")
-
-			if len(dataSource) != 4 {
-				// set ErrorUnknownDataType somehow
-				continue
-			}
-
-			dsSpec.Name = dataSource[0]
-
-			if dsType, ok := ValueTypeNames[strings.ToLower(dataSource[1])]; ok {
-				dsSpec.Type = dsType
-			} else {
-				// set ErrorUnknownDataType somehow
-				continue
-			}
-
-			dsSpec.Min = dataSource[2]
-			dsSpec.Max = dataSource[3]
-
-			types[dataSet] = append(types[dataSet], dsSpec)
-		}
+		types[dataSetName] = dataSetSources
 	}
 
 	return types, nil
+}
+
+// ParseDataSet parses one line from a collectd types.db file and returns
+// the data-set name & a Type struct
+func ParseDataSet(s string) (string, []*Type, error) {
+	splitFn := func(c rune) bool {
+		return c == '\t' || c == ' ' || c == ','
+	}
+	fields := strings.FieldsFunc(s, splitFn)
+
+	// What's the "#" check for?  Comment?
+	if len(fields) < 2 {
+		return "", nil, fmt.Errorf("minimum of 2 fields required \"%s\"", s)
+	}
+
+	dataSetName := fields[0]
+	dataSetSources := make([]*Type, len(fields[1:]))
+
+	// Parse each data source
+	for i, field := range fields[1:] {
+		// Split data source fields
+		dsFields := strings.Split(field, ":")
+		if len(dsFields) != 4 {
+			return "", nil, fmt.Errorf("exactly 4 fields required \"%s\"", field)
+		}
+
+		// Parse data source type
+		dsTypeStr := strings.ToLower(dsFields[1])
+		dsType, ok := ValueTypeNames[dsTypeStr]
+		if !ok {
+			return "", nil, fmt.Errorf("invalid data-source type \"%s\"", dsTypeStr)
+		}
+
+		dataSetSources[i] = &Type{
+			Name: dsFields[0],
+			Type: dsType,
+			Min:  dsFields[2],
+			Max:  dsFields[3],
+		}
+	}
+
+	return dataSetName, dataSetSources, nil
 }

@@ -20,7 +20,7 @@ func Listen(addr string, c chan collectd.Packet, typesdb string) {
 		log.Fatalln("fatal: failed to listen", err)
 	}
 
-	types, err := collectd.TypesDB(typesdb)
+	types, err := collectd.TypesDBFile(typesdb)
 	if err != nil {
 		log.Fatalln("fatal: failed to parse types.db", err)
 	}

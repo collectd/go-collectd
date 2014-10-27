@@ -17,14 +17,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	types, err := collectd.TypesDB(*typesPath)
+	types, err := collectd.TypesDBFile(*typesPath)
 
 	if err != nil {
 		fmt.Printf("%s\n", err)
 		os.Exit(1)
 	}
 
-	for k, v := range types {
-		fmt.Printf("%s: %+v\n", k, v)
+	for k, pv := range types {
+		fmt.Printf("%s:\n", k)
+		for _, v := range pv {
+			fmt.Printf("\t%+v\n", *v)
+		}
 	}
 }

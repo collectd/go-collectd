@@ -305,7 +305,6 @@ func ParseDataSet(s string) (string, []*Type, error) {
 	}
 	fields := strings.FieldsFunc(s, splitFn)
 
-	// What's the "#" check for?  Comment?
 	if len(fields) < 2 {
 		return "", nil, fmt.Errorf("minimum of 2 fields required \"%s\"", s)
 	}

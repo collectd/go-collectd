@@ -122,10 +122,8 @@ func Packets(b []byte, types Types) (*[]Packet, error) {
 	var valueTypes []uint8
 
 	for buf.Len() > 0 {
-		err = binary.Read(buf, binary.BigEndian, &packetHeader)
-		if err != nil {
-			return nil, err
-		}
+		packetHeader.PartType = binary.BigEndian.Uint16(buf.Next(2))
+		packetHeader.PartLength = binary.BigEndian.Uint16(buf.Next(2))
 
 		if packetHeader.PartLength < 5 {
 			return nil, ErrorInvalid

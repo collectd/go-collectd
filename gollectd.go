@@ -41,10 +41,10 @@ const (
 	ParseEncryption = 0x0210
 )
 
-var ErrorInvalid = errors.New("gollectd: Invalid packet")
-var ErrorUnsupported = errors.New("gollectd: Unsupported packet")
-var ErrorUnknownType = errors.New("gollectd: Unknown value type")
-var ErrorUnknownDataType = errors.New("gollectd: Unknown data source type")
+var ErrorInvalid = errors.New("Invalid packet")
+var ErrorUnsupported = errors.New("Unsupported packet")
+var ErrorUnknownType = errors.New("Unknown value type")
+var ErrorUnknownDataType = errors.New("Unknown data source type")
 
 var ValueTypeNames = map[string]uint8{
 	"absolute": TypeAbsolute,
@@ -288,7 +288,7 @@ func TypesDB(b []byte) (Types, error) {
 		}
 		dataSetName, dataSetSources, err := ParseDataSet(line)
 		if err != nil {
-			return nil, fmt.Errorf("line %d: %s", i+1, err.Error())
+			return nil, fmt.Errorf("Line %d: %s", i+1, err.Error())
 		}
 
 		types[dataSetName] = dataSetSources
@@ -306,7 +306,7 @@ func ParseDataSet(s string) (string, []*Type, error) {
 	fields := strings.FieldsFunc(s, splitFn)
 
 	if len(fields) < 2 {
-		return "", nil, fmt.Errorf("minimum of 2 fields required \"%s\"", s)
+		return "", nil, fmt.Errorf("Minimum of 2 fields required \"%s\"", s)
 	}
 
 	dataSetName := fields[0]
@@ -317,14 +317,14 @@ func ParseDataSet(s string) (string, []*Type, error) {
 		// Split data source fields
 		dsFields := strings.Split(field, ":")
 		if len(dsFields) != 4 {
-			return "", nil, fmt.Errorf("exactly 4 fields required \"%s\"", field)
+			return "", nil, fmt.Errorf("Exactly 4 fields required \"%s\"", field)
 		}
 
 		// Parse data source type
 		dsTypeStr := strings.ToLower(dsFields[1])
 		dsType, ok := ValueTypeNames[dsTypeStr]
 		if !ok {
-			return "", nil, fmt.Errorf("invalid data-source type \"%s\"", dsTypeStr)
+			return "", nil, fmt.Errorf("Invalid data-source type \"%s\"", dsTypeStr)
 		}
 
 		dataSetSources[i] = &Type{

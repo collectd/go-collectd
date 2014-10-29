@@ -16,7 +16,7 @@ import (
     collectd github.com/kimor79/gollectd
 )
 
-types, err := collectd.TypesDB("/path/to/types.db")
+types, err := collectd.TypesDBFile("/path/to/types.db")
 
 buffer := make([]byte, 1452)
 n, _, err := socket.ReadFromUDP(buffer)

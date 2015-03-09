@@ -87,6 +87,9 @@ func (e *Executor) Stop() {
 }
 
 func (cb valueCallback) run(g *sync.WaitGroup) {
+	if cb.vl.Host == "" {
+		cb.vl.Host = Hostname()
+	}
 	cb.vl.Interval = sanitizeInterval(cb.vl.Interval)
 	cb.vl.Values = make([]api.Value, 1)
 
@@ -127,10 +130,10 @@ func (cb voidCallback) stop() {
 	cb.done <- true
 }
 
-// DefaultInterval determines the default interval from the "COLLECTD_INTERVAL"
+// Interval determines the default interval from the "COLLECTD_INTERVAL"
 // environment variable. It falls back to 10s if the environment variable is
 // unset or cannot be parsed.
-func DefaultInterval() time.Duration {
+func Interval() time.Duration {
 	i, err := strconv.ParseFloat(os.Getenv("COLLECTD_INTERVAL"), 64)
 	if err != nil {
 		log.Printf("unable to determine default interval: %v", err)
@@ -140,9 +143,24 @@ func DefaultInterval() time.Duration {
 	return time.Duration(i * float64(time.Second))
 }
 
+// Hostname determines the hostname to use from the "COLLECTD_HOSTNAME"
+// environment variable and falls back to os.Hostname() if it is unset. If that
+// also fails an empty string is returned.
+func Hostname() string {
+	if h := os.Getenv("COLLECTD_HOSTNAME"); h != "" {
+		return h
+	}
+
+	if h, err := os.Hostname(); err == nil {
+		return h
+	}
+
+	return ""
+}
+
 func sanitizeInterval(in time.Duration) time.Duration {
 	if in == time.Duration(0) {
-		return DefaultInterval()
+		return Interval()
 	}
 
 	return in

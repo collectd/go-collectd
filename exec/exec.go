@@ -100,7 +100,7 @@ func (cb valueCallback) run(g *sync.WaitGroup) {
 		case _ = <-ticker.C:
 			cb.vl.Values[0] = cb.callback()
 			cb.vl.Time = time.Now()
-			fmt.Print(format.Putval(cb.vl))
+			Dispatch(cb.vl)
 		case _ = <-cb.done:
 			g.Done()
 			return
@@ -128,6 +128,12 @@ func (cb voidCallback) run(g *sync.WaitGroup) {
 
 func (cb voidCallback) stop() {
 	cb.done <- true
+}
+
+// Dispatch prints the ValueList to STDOUT in the format understood by the exec
+// plugin.
+func Dispatch(vl api.ValueList) {
+	fmt.Print(format.Putval(vl))
 }
 
 // Interval determines the default interval from the "COLLECTD_INTERVAL"

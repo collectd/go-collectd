@@ -15,7 +15,7 @@ import (
 )
 
 type valueCallback struct {
-	callback func() api.Number
+	callback func() api.Value
 	vl       api.ValueList
 	done     chan bool
 }
@@ -47,7 +47,7 @@ func NewExecutor() *Executor {
 // ValueCallback adds a simple "value" callback to the Executor. The callback
 // only returns a Number, i.e. either a api.Gauge or api.Derive, and formatting
 // and printing is done by the executor.
-func (e *Executor) ValueCallback(callback func() api.Number, vl api.ValueList) {
+func (e *Executor) ValueCallback(callback func() api.Value, vl api.ValueList) {
 	e.cb = append(e.cb, valueCallback{
 		callback: callback,
 		vl:       vl,
@@ -88,7 +88,7 @@ func (e *Executor) Stop() {
 
 func (cb valueCallback) run(g *sync.WaitGroup) {
 	cb.vl.Interval = sanitizeInterval(cb.vl.Interval)
-	cb.vl.Values = make([]api.Number, 1)
+	cb.vl.Values = make([]api.Value, 1)
 
 	ticker := time.NewTicker(cb.vl.Interval)
 

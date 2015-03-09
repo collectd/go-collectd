@@ -44,7 +44,7 @@ func Example() {
 	e := NewExecutor()
 
 	// simple "value" callback
-	answer := func() api.Number {
+	answer := func() api.Value {
 		return api.Gauge(42)
 	}
 	e.ValueCallback(answer, api.ValueList{
@@ -67,7 +67,7 @@ func Example() {
 			},
 			Interval: interval,
 			Time:     time.Now(),
-			Values:   make([]api.Number, 1),
+			Values:   make([]api.Value, 1),
 		}
 
 		data := []struct {

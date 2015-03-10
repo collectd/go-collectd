@@ -2,31 +2,21 @@
 package api
 
 import (
-	"fmt"
 	"time"
 )
 
 // Value represents either a Gauge or a Derive. It is Go's equivalent to the C
-// union value_t.
-type Value interface {
-	String() string
-}
+// union value_t. If a function accepts a Value, you may pass in either a Gauge
+// or a Derive. Passing in any other type may or may not panic.
+type Value interface{}
 
 // Gauge represents a gauge metric value, such as a temperature. It is Go's
 // equivalent to the C type gauge_t.
 type Gauge float64
 
-func (g Gauge) String() string {
-	return fmt.Sprintf("%g", g)
-}
-
 // Derive represents a derive or counter metric value, such as bytes sent over
 // the network. It is Go's equivalent to the C type derive_t.
 type Derive int64
-
-func (d Derive) String() string {
-	return fmt.Sprintf("%d", d)
-}
 
 // Identifier identifies one metric.
 type Identifier struct {

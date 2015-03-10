@@ -1,9 +1,9 @@
 package network
 
 import (
-"io"
 	"bytes"
 	"encoding/binary"
+	"io"
 	"time"
 
 	"collectd.org/api"
@@ -153,4 +153,3 @@ func (b *Buffer) writeInt(typ int16, n int64) error {
 
 	return nil
 }
-

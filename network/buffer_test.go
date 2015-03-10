@@ -1,8 +1,8 @@
 package network
 
 import (
+	"reflect"
 	"testing"
-"reflect"
 )
 
 func TestWriteInt(t *testing.T) {

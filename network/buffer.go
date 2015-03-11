@@ -99,18 +99,18 @@ func (b *Buffer) writeInterval(d time.Duration) error {
 }
 
 func (b *Buffer) writeValues(values []api.Value) error {
-	size := int16(6 + 9*len(values))
+	size := uint16(6 + 9*len(values))
 
-	binary.Write(b.buffer, binary.BigEndian, typeValues)
-	binary.Write(b.buffer, binary.BigEndian, int16(size))
-	binary.Write(b.buffer, binary.BigEndian, int16(len(values)))
+	binary.Write(b.buffer, binary.BigEndian, uint16(typeValues))
+	binary.Write(b.buffer, binary.BigEndian, uint16(size))
+	binary.Write(b.buffer, binary.BigEndian, uint16(len(values)))
 
 	for _, v := range values {
 		switch v.(type) {
 		case api.Gauge:
-			binary.Write(b.buffer, binary.BigEndian, int8(dsTypeGauge))
+			binary.Write(b.buffer, binary.BigEndian, uint8(dsTypeGauge))
 		case api.Derive:
-			binary.Write(b.buffer, binary.BigEndian, int8(dsTypeDerive))
+			binary.Write(b.buffer, binary.BigEndian, uint8(dsTypeDerive))
 		default:
 			panic("unexpected type")
 		}
@@ -131,13 +131,13 @@ func (b *Buffer) writeValues(values []api.Value) error {
 	return nil
 }
 
-func (b *Buffer) writeString(typ int16, s string) error {
+func (b *Buffer) writeString(typ uint16, s string) error {
 	encoded := bytes.NewBufferString(s)
 	encoded.Write([]byte{0})
 
 	// Because s is a Unicode string, encoded.Len() may be larger than
 	// len(s).
-	size := int16(4 + encoded.Len())
+	size := uint16(4 + encoded.Len())
 
 	binary.Write(b.buffer, binary.BigEndian, typ)
 	binary.Write(b.buffer, binary.BigEndian, size)
@@ -146,9 +146,9 @@ func (b *Buffer) writeString(typ int16, s string) error {
 	return nil
 }
 
-func (b *Buffer) writeInt(typ int16, n int64) error {
+func (b *Buffer) writeInt(typ uint16, n int64) error {
 	binary.Write(b.buffer, binary.BigEndian, typ)
-	binary.Write(b.buffer, binary.BigEndian, int16(12))
+	binary.Write(b.buffer, binary.BigEndian, uint16(12))
 	binary.Write(b.buffer, binary.BigEndian, n)
 
 	return nil

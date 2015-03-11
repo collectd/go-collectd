@@ -53,6 +53,10 @@ func NewBuffer(w io.Writer) *Buffer {
 }
 
 func (b *Buffer) flush(n int) error {
+	if n == 0 {
+		return nil
+	}
+
 	buf := make([]byte, n)
 
 	if _, err := b.buffer.Read(buf); err != nil {

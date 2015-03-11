@@ -3,8 +3,10 @@ package network
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 	"math"
+	"sync"
 	"time"
 
 	"collectd.org/api"
@@ -28,26 +30,68 @@ const (
 	typeIntervalHR     = 0x0009
 )
 
+const DefaultBufferSize = 1452
+
 // Buffer contains the binary representation of multiple ValueLists and state
 // optimally write the next ValueList.
 type Buffer struct {
+	lock   *sync.Mutex
 	buffer *bytes.Buffer
+	output io.Writer
 	state  api.ValueList
+	size   int
 }
 
 // NewBuffer initializes a new Buffer.
-func NewBuffer() *Buffer {
+func NewBuffer(w io.Writer) *Buffer {
 	return &Buffer{
+		lock:   new(sync.Mutex),
 		buffer: new(bytes.Buffer),
+		output: w,
+		size:   DefaultBufferSize,
 	}
 }
 
+func (b *Buffer) flush(n int) error {
+	buf := make([]byte, n)
+
+	if _, err := b.buffer.Read(buf); err != nil {
+		return err
+	}
+
+	if _, err := b.output.Write(buf); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *Buffer) Flush() error {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	return b.flush(b.buffer.Len())
+}
+
 // WriteValueList adds a ValueList to the network buffer.
-func (b *Buffer) WriteValueList(vl api.ValueList) {
+func (b *Buffer) WriteValueList(vl api.ValueList) (n int, err error) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	origLen := b.buffer.Len()
+
 	b.writeIdentifier(vl.Identifier)
 	b.writeTime(vl.Time)
 	b.writeInterval(vl.Interval)
 	b.writeValues(vl.Values)
+
+	n = b.buffer.Len() - origLen
+	err = nil
+	if b.buffer.Len() >= b.size {
+		err = b.flush(origLen)
+	}
+
+	return
 }
 
 func (b *Buffer) WriteTo(w io.Writer) (n int64, err error) {
@@ -87,8 +131,7 @@ func (b *Buffer) writeTime(t time.Time) error {
 	}
 	b.state.Time = t
 
-	ns := t.UnixNano()
-	return b.writeInt(typeTimeHR, int64(float64(ns)*1.073741824))
+	return b.writeInt(typeTimeHR, api.Cdtime(t))
 }
 
 func (b *Buffer) writeInterval(d time.Duration) error {
@@ -97,8 +140,7 @@ func (b *Buffer) writeInterval(d time.Duration) error {
 	}
 	b.state.Interval = d
 
-	s := d.Seconds()
-	return b.writeInt(typeIntervalHR, int64(s*1073741824.0))
+	return b.writeInt(typeIntervalHR, api.CdtimeDuration(d))
 }
 
 func (b *Buffer) writeValues(values []api.Value) error {
@@ -153,7 +195,7 @@ func (b *Buffer) writeString(typ uint16, s string) error {
 	return nil
 }
 
-func (b *Buffer) writeInt(typ uint16, n int64) error {
+func (b *Buffer) writeInt(typ uint16, n uint64) error {
 	binary.Write(b.buffer, binary.BigEndian, typ)
 	binary.Write(b.buffer, binary.BigEndian, uint16(12))
 	binary.Write(b.buffer, binary.BigEndian, n)

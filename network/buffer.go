@@ -2,6 +2,8 @@ package network
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/binary"
 	"io"
 	"math"
@@ -27,6 +29,7 @@ const (
 	typeValues         = 0x0006
 	typeInterval       = 0x0007
 	typeIntervalHR     = 0x0009
+	typeSignSHA256     = 0x0200
 )
 
 const DefaultBufferSize = 1452
@@ -34,11 +37,13 @@ const DefaultBufferSize = 1452
 // Buffer contains the binary representation of multiple ValueLists and state
 // optimally write the next ValueList.
 type Buffer struct {
-	lock   *sync.Mutex
-	buffer *bytes.Buffer
-	output io.Writer
-	state  api.ValueList
-	size   int
+	lock               *sync.Mutex
+	buffer             *bytes.Buffer
+	output             io.Writer
+	state              api.ValueList
+	size               int
+	username, password string
+	encrypt            bool
 }
 
 // NewBuffer initializes a new Buffer.
@@ -48,6 +53,22 @@ func NewBuffer(w io.Writer) *Buffer {
 		buffer: new(bytes.Buffer),
 		output: w,
 		size:   DefaultBufferSize,
+	}
+}
+
+// NewBufferSigned initializes a new Buffer which is cryptographically signed.
+func NewBufferSigned(w io.Writer, username, password string) *Buffer {
+	encoded := bytes.NewBufferString(username)
+	sigSize := 36 + encoded.Len()
+
+	return &Buffer{
+		lock:     new(sync.Mutex),
+		buffer:   new(bytes.Buffer),
+		output:   w,
+		size:     DefaultBufferSize - sigSize,
+		username: username,
+		password: password,
+		encrypt:  false,
 	}
 }
 
@@ -187,6 +208,13 @@ func (b *Buffer) flush(n int) error {
 	}
 
 	buf := make([]byte, n)
+	if b.username != "" && b.password != "" {
+		if b.encrypt {
+			// TODO
+		} else {
+			buf = sign(buf, b.username, b.password)
+		}
+	}
 
 	if _, err := b.buffer.Read(buf); err != nil {
 		return err
@@ -197,4 +225,25 @@ func (b *Buffer) flush(n int) error {
 	}
 
 	return nil
+}
+
+func sign(payload []byte, username, password string) []byte {
+	key := bytes.NewBufferString(password)
+	mac := hmac.New(sha256.New, key.Bytes())
+
+	signedData := bytes.NewBufferString(username)
+	signedData.Write(payload)
+
+	size := uint16(36 + signedData.Len())
+
+	signedData.WriteTo(mac)
+
+	out := new(bytes.Buffer)
+	binary.Write(out, binary.BigEndian, uint16(typeSignSHA256))
+	binary.Write(out, binary.BigEndian, size)
+	out.Write(mac.Sum(nil))
+	out.WriteString(username)
+	out.Write(payload)
+
+	return out.Bytes()
 }

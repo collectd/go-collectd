@@ -1,15 +1,94 @@
 package network
 
 import (
+	"bytes"
 	"math"
 	"reflect"
 	"testing"
+	"time"
 
 	"collectd.org/api"
 )
 
+func TestWriteValueList(t *testing.T) {
+	gotBuf := new(bytes.Buffer)
+	b := NewBuffer(gotBuf)
+
+	vl := api.ValueList{
+		Identifier: api.Identifier{
+			Host:   "example.com",
+			Plugin: "golang",
+			Type:   "gauge",
+		},
+		Time:     time.Unix(1426076671, 123000000), // Wed Mar 11 13:24:31 CET 2015
+		Interval: 10 * time.Second,
+		Values:   []api.Value{api.Derive(1)},
+	}
+
+	n, err := b.WriteValueList(vl)
+	if n != 76 || err != nil {
+		t.Errorf("WriteValueList got (%d, %v), want (76, nil)", n, err)
+		return
+	}
+
+	// ValueList with much the same fields, to test compression.
+	vl = api.ValueList{
+		Identifier: api.Identifier{
+			Host:           "example.com",
+			Plugin:         "golang",
+			PluginInstance: "test",
+			Type:           "gauge",
+		},
+		Time:     time.Unix(1426076681, 234000000), // Wed Mar 11 13:24:41 CET 2015
+		Interval: 10 * time.Second,
+		Values:   []api.Value{api.Derive(2)},
+	}
+
+	n, err = b.WriteValueList(vl)
+	if n != 36 || err != nil {
+		t.Errorf("WriteValueList got (%d, %v), want (76, nil)", n, err)
+		return
+	}
+
+	want := []byte{
+		// vl1
+		0, 0, 0, 16, 'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm', 0,
+		0, 2, 0, 11, 'g', 'o', 'l', 'a', 'n', 'g', 0,
+		0, 4, 0, 10, 'g', 'a', 'u', 'g', 'e', 0,
+		0, 8, 0, 12, 0x15, 0x40, 0x0c, 0xff, 0xc7, 0xdf, 0x3b, 0x64,
+		0, 9, 0, 12, 0, 0, 0, 0x02, 0x80, 0, 0, 0,
+		0, 6, 0, 15, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 1,
+		// vl2
+		0, 3, 0, 9, 't', 'e', 's', 't', 0,
+		0, 8, 0, 12, 0x15, 0x40, 0x0d, 0x02, 0x4e, 0xf9, 0xdb, 0x22,
+		0, 6, 0, 15, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 2,
+	}
+	got := b.buffer.Bytes()
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestWriteTime(t *testing.T) {
+	b := &Buffer{buffer: new(bytes.Buffer)}
+	b.writeTime(time.Unix(1426083986, 314000000)) // Wed Mar 11 15:26:26 CET 2015
+
+	// 1426083986.314 * 2^30 -> 1531246020641985396.736
+	// 1531246020641985396 -> 0x1540142494189374
+	want := []byte{0, 8, // pkg type
+		0, 12, // pkg len
+		0x15, 0x40, 0x14, 0x24, 0x94, 0x18, 0x93, 0x74,
+	}
+	got := b.buffer.Bytes()
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
 func TestWriteValues(t *testing.T) {
-	b := NewBuffer()
+	b := &Buffer{buffer: new(bytes.Buffer)}
 
 	b.writeValues([]api.Value{
 		api.Gauge(42),
@@ -33,7 +112,7 @@ func TestWriteValues(t *testing.T) {
 }
 
 func TestWriteString(t *testing.T) {
-	b := NewBuffer()
+	b := &Buffer{buffer: new(bytes.Buffer)}
 
 	b.writeString(0xf007, "foo")
 
@@ -49,9 +128,9 @@ func TestWriteString(t *testing.T) {
 }
 
 func TestWriteInt(t *testing.T) {
-	b := NewBuffer()
+	b := &Buffer{buffer: new(bytes.Buffer)}
 
-	b.writeInt(23, int64(384))
+	b.writeInt(23, uint64(384))
 
 	want := []byte{0, 23, // pkg type
 		0, 12, // pkg len

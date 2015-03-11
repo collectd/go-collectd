@@ -3,7 +3,6 @@ package network
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"io"
 	"math"
 	"sync"
@@ -78,7 +77,7 @@ func (b *Buffer) Flush() error {
 }
 
 // WriteValueList adds a ValueList to the network buffer.
-func (b *Buffer) WriteValueList(vl api.ValueList) (n int, err error) {
+func (b *Buffer) WriteValueList(vl api.ValueList) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -89,13 +88,13 @@ func (b *Buffer) WriteValueList(vl api.ValueList) (n int, err error) {
 	b.writeInterval(vl.Interval)
 	b.writeValues(vl.Values)
 
-	n = b.buffer.Len() - origLen
-	err = nil
 	if b.buffer.Len() >= b.size {
-		err = b.flush(origLen)
+		if err := b.flush(origLen); err != nil {
+			return err
+		}
 	}
 
-	return
+	return nil
 }
 
 func (b *Buffer) WriteTo(w io.Writer) (n int64, err error) {

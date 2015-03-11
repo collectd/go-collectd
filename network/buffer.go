@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"math"
 	"time"
 
 	"collectd.org/api"
@@ -12,7 +13,9 @@ import (
 const (
 	dsTypeGauge  = 1
 	dsTypeDerive = 2
+)
 
+const (
 	typeHost           = 0x0000
 	typeTime           = 0x0001
 	typeTimeHR         = 0x0008
@@ -119,8 +122,12 @@ func (b *Buffer) writeValues(values []api.Value) error {
 	for _, v := range values {
 		switch v := v.(type) {
 		case api.Gauge:
-			// sic: floats are encoded in little endian.
-			binary.Write(b.buffer, binary.LittleEndian, float64(v))
+			if math.IsNaN(float64(v)) {
+				b.buffer.Write([]byte{0, 0, 0, 0, 0, 0, 0xf8, 0x7f})
+			} else {
+				// sic: floats are encoded in little endian.
+				binary.Write(b.buffer, binary.LittleEndian, float64(v))
+			}
 		case api.Derive:
 			binary.Write(b.buffer, binary.BigEndian, int64(v))
 		default:

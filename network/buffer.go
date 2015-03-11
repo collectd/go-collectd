@@ -51,24 +51,7 @@ func NewBuffer(w io.Writer) *Buffer {
 	}
 }
 
-func (b *Buffer) flush(n int) error {
-	if n == 0 {
-		return nil
-	}
-
-	buf := make([]byte, n)
-
-	if _, err := b.buffer.Read(buf); err != nil {
-		return err
-	}
-
-	if _, err := b.output.Write(buf); err != nil {
-		return err
-	}
-
-	return nil
-}
-
+// Flush writes all data currently in the buffer to the associated io.Writer.
 func (b *Buffer) Flush() error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -202,6 +185,24 @@ func (b *Buffer) writeInt(typ uint16, n uint64) error {
 	binary.Write(b.buffer, binary.BigEndian, typ)
 	binary.Write(b.buffer, binary.BigEndian, uint16(12))
 	binary.Write(b.buffer, binary.BigEndian, n)
+
+	return nil
+}
+
+func (b *Buffer) flush(n int) error {
+	if n == 0 {
+		return nil
+	}
+
+	buf := make([]byte, n)
+
+	if _, err := b.buffer.Read(buf); err != nil {
+		return err
+	}
+
+	if _, err := b.output.Write(buf); err != nil {
+		return err
+	}
 
 	return nil
 }

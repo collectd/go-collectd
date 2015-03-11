@@ -228,21 +228,20 @@ func (b *Buffer) flush(n int) error {
 }
 
 func sign(payload []byte, username, password string) []byte {
-	key := bytes.NewBufferString(password)
-	mac := hmac.New(sha256.New, key.Bytes())
+	mac := hmac.New(sha256.New, bytes.NewBufferString(password).Bytes())
 
-	signedData := bytes.NewBufferString(username)
-	signedData.Write(payload)
+	usernameBuffer := bytes.NewBufferString(username)
 
-	size := uint16(36 + signedData.Len())
+	size := uint16(36 + usernameBuffer.Len())
 
-	signedData.WriteTo(mac)
+	mac.Write(usernameBuffer.Bytes())
+	mac.Write(payload)
 
 	out := new(bytes.Buffer)
 	binary.Write(out, binary.BigEndian, uint16(typeSignSHA256))
 	binary.Write(out, binary.BigEndian, size)
 	out.Write(mac.Sum(nil))
-	out.WriteString(username)
+	out.Write(usernameBuffer.Bytes())
 	out.Write(payload)
 
 	return out.Bytes()

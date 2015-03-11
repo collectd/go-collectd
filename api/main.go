@@ -2,31 +2,21 @@
 package api
 
 import (
-	"fmt"
 	"time"
 )
 
 // Value represents either a Gauge or a Derive. It is Go's equivalent to the C
-// union value_t.
-type Value interface {
-	String() string
-}
+// union value_t. If a function accepts a Value, you may pass in either a Gauge
+// or a Derive. Passing in any other type may or may not panic.
+type Value interface{}
 
 // Gauge represents a gauge metric value, such as a temperature. It is Go's
 // equivalent to the C type gauge_t.
 type Gauge float64
 
-func (g Gauge) String() string {
-	return fmt.Sprintf("%g", g)
-}
-
 // Derive represents a derive or counter metric value, such as bytes sent over
 // the network. It is Go's equivalent to the C type derive_t.
 type Derive int64
-
-func (d Derive) String() string {
-	return fmt.Sprintf("%d", d)
-}
 
 // Identifier identifies one metric.
 type Identifier struct {
@@ -55,4 +45,22 @@ func (id Identifier) String() string {
 		str += "-" + id.TypeInstance
 	}
 	return str
+}
+
+func cdtimeNano(ns uint64) uint64 {
+	// break into seconds and nano-seconds so the left-shift doesn't overflow.
+	s := ns / 1000000000
+	ns = ns % 1000000000
+
+	return (s << 30) | ((ns << 30) / 1000000000)
+}
+
+// Cdtime converts a time.Time to collectd's internal time format.
+func Cdtime(t time.Time) uint64 {
+	return cdtimeNano(uint64(t.UnixNano()))
+}
+
+// CdtimeDuration converts a time.Duration to collectd's internal time format.
+func CdtimeDuration(d time.Duration) uint64 {
+	return cdtimeNano(uint64(d.Nanoseconds()))
 }

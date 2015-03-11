@@ -4,6 +4,8 @@ Utilities for using [collectd](https://collectd.org/) together with [Go](http://
 
 # Synopsis
 
+    package main
+    
     import (
         "time"
         
@@ -11,17 +13,19 @@ Utilities for using [collectd](https://collectd.org/) together with [Go](http://
         "collectd.org/exec"
     )
     
-    vl := ValueList{
-       Identifier{
-           Host: exec.Hostname(),
-           Plugin: "golang",
-           Type: "gauge",
-       },
-       Time: time.Now(),
-       Interval: exec.Interval(),
-       Values: []api.Value{api.Gauge(42)},
+    func main() {
+        vl := api.ValueList{
+            Identifier: api.Identifier{
+                Host:   exec.Hostname(),
+                Plugin: "golang",
+                Type:   "gauge",
+            },
+            Time:     time.Now(),
+            Interval: exec.Interval(),
+            Values:   []api.Value{api.Gauge(42)},
+        }
+        exec.Dispatch(vl)
     }
-    exec.Dispatch(vl)
 
 # Description
 

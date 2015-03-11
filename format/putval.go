@@ -18,13 +18,13 @@ func formatValues(vl api.ValueList) string {
 	}
 
 	for i, v := range vl.Values {
-		switch v.(type) {
+		switch v := v.(type) {
 		case api.Gauge:
 			fields[i+1] = fmt.Sprintf("%g", v)
 		case api.Derive:
 			fields[i+1] = fmt.Sprintf("%d", v)
 		default:
-			panic(fmt.Errorf("Number has unexpected type: %#v", v))
+			panic(fmt.Errorf("Value has unexpected type %T", v))
 		}
 	}
 

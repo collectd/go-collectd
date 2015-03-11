@@ -25,9 +25,8 @@ func TestWriteValueList(t *testing.T) {
 		Values:   []api.Value{api.Derive(1)},
 	}
 
-	n, err := b.WriteValueList(vl)
-	if n != 76 || err != nil {
-		t.Errorf("WriteValueList got (%d, %v), want (76, nil)", n, err)
+	if err := b.WriteValueList(vl); err != nil {
+		t.Errorf("WriteValueList got %v, want nil", err)
 		return
 	}
 
@@ -44,9 +43,8 @@ func TestWriteValueList(t *testing.T) {
 		Values:   []api.Value{api.Derive(2)},
 	}
 
-	n, err = b.WriteValueList(vl)
-	if n != 36 || err != nil {
-		t.Errorf("WriteValueList got (%d, %v), want (76, nil)", n, err)
+	if err := b.WriteValueList(vl); err != nil {
+		t.Errorf("WriteValueList got %v, want nil", err)
 		return
 	}
 

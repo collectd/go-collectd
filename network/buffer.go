@@ -80,14 +80,6 @@ func (b *Buffer) WriteValueList(vl api.ValueList) error {
 	return nil
 }
 
-func (b *Buffer) WriteTo(w io.Writer) (n int64, err error) {
-	n, err = b.buffer.WriteTo(w)
-
-	b.buffer.Reset()
-	b.state = api.ValueList{}
-	return
-}
-
 func (b *Buffer) writeIdentifier(id api.Identifier) {
 	if id.Host != b.state.Host {
 		b.writeString(typeHost, id.Host)

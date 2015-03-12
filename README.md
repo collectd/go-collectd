@@ -24,7 +24,7 @@ Utilities for using [collectd](https://collectd.org/) together with [Go](http://
             Interval: exec.Interval(),
             Values:   []api.Value{api.Gauge(42)},
         }
-        exec.Dispatch(vl)
+        exec.Putval.Dispatch(vl)
     }
 
 # Description

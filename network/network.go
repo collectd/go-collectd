@@ -9,7 +9,8 @@ import (
 // DefaultService is the default port used by collectd's network plugin.
 const DefaultService = "25826"
 
-// Conn is a client connection to a collectd server.
+// Conn is a client connection to a collectd server. It implements the
+// api.Dispatcher interface.
 type Conn struct {
 	udp    net.Conn
 	buffer *Buffer
@@ -57,9 +58,9 @@ func DialEncrypted(address, username, password string) (*Conn, error) {
 	}, nil
 }
 
-// WriteValueList adds a ValueList to the internal buffer. Data is only written
-// to the network when the buffer is full.
-func (c *Conn) WriteValueList(vl api.ValueList) error {
+// Dispatch adds a ValueList to the internal buffer. Data is only written to
+// the network when the buffer is full.
+func (c *Conn) Dispatch(vl api.ValueList) error {
 	return c.buffer.WriteValueList(vl)
 }
 

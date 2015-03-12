@@ -26,7 +26,7 @@ func Example_client() {
 		Values:   []api.Value{api.Gauge(42.0)},
 	}
 
-	if err := conn.WriteValueList(vl); err != nil {
+	if err := conn.Dispatch(vl); err != nil {
 		log.Fatal(err)
 	}
 }

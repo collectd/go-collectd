@@ -34,6 +34,12 @@ type ValueList struct {
 	Values   []Value
 }
 
+// Dispatcher are objects accepting a ValueList for "dispatching", e.g. writing
+// to the network.
+type Dispatcher interface {
+	Dispatch(vl ValueList) error
+}
+
 // String returns a string representation of the Identifier.
 func (id Identifier) String() string {
 	str := id.Host + "/" + id.Plugin

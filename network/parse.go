@@ -130,34 +130,22 @@ func Parse(b []byte, types Types) ([]api.ValueList, []error) {
 			case typeTypeInstance:
 				state.Identifier.TypeInstance = str
 			}
-		case typeInterval:
+		case typeInterval, typeIntervalHR, typeTime, typeTimeHR:
 			i, err := parseInt(payload)
 			if err != nil {
 				errors = append(errors, err)
 				continue
 			}
-			state.Interval = time.Duration(i) * time.Second
-		case typeIntervalHR:
-			d, err := parseDuration(payload)
-			if err != nil {
-				errors = append(errors, err)
-				continue
+			switch partType {
+			case typeInterval:
+				state.Interval = time.Duration(i) * time.Second
+			case typeIntervalHR:
+				state.Interval = cdtime.Time(i).Duration()
+			case typeTime:
+				state.Time = time.Unix(int64(i), 0)
+			case typeTimeHR:
+				state.Time = cdtime.Time(i).Time()
 			}
-			state.Interval = d
-		case typeTime:
-			i, err := parseInt(payload)
-			if err != nil {
-				errors = append(errors, err)
-				continue
-			}
-			state.Time = time.Unix(int64(i), 0)
-		case typeTimeHR:
-			t, err := parseTime(payload)
-			if err != nil {
-				errors = append(errors, err)
-				continue
-			}
-			state.Time = t
 		case typeValues:
 			vl := state
 			var err error
@@ -211,24 +199,6 @@ func parseValues(b []byte) ([]api.Value, error) {
 	}
 
 	return values, nil
-}
-
-func parseTime(b []byte) (time.Time, error) {
-	s, err := parseInt(b)
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	return cdtime.Time(s).Time(), nil
-}
-
-func parseDuration(b []byte) (time.Duration, error) {
-	s, err := parseInt(b)
-	if err != nil {
-		return time.Duration(0), err
-	}
-
-	return cdtime.Time(s).Duration(), nil
 }
 
 func parseInt(b []byte) (uint64, error) {

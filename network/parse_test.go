@@ -385,3 +385,38 @@ arc_size		current:GAUGE:0:U, target:GAUGE:0:U, minlimit:GAUGE:0:U, maxlimit:GAUG
 mysql_qcache		hits:COUNTER:0:U, inserts:COUNTER:0:U, not_cached:COUNTER:0:U, lowmem_prunes:COUNTER:0:U, queries_in_cache:GAUGE:0:U
 mysql_threads		running:GAUGE:0:U, connected:GAUGE:0:U, cached:GAUGE:0:U, created:COUNTER:0:U
 `)
+
+func TestParseInt(t *testing.T) {
+	want := uint64(8231)
+	got, err := parseInt([]byte{0, 0, 0, 0, 0, 0, 0x20, 0x27})
+	if err != nil {
+		t.Error(err)
+	} else if got != want {
+		t.Errorf("got %d, want %d", got, want)
+	}
+
+	got, err = parseInt([]byte{0, 0, 0, 0, 0, 0x20, 0x27})
+	if err == nil {
+		t.Errorf("got (%d, nil), want (0, ErrorInvalid)", got)
+	}
+
+	got, err = parseInt([]byte{0, 0, 0, 0, 0, 0, 0, 0x20, 0x27})
+	if err == nil {
+		t.Errorf("got (%d, nil), want (0, ErrorInvalid)", got)
+	}
+}
+
+func TestParseString(t *testing.T) {
+	want := "test"
+	got, err := parseString([]byte{'t', 'e', 's', 't', 0})
+	if err != nil {
+		t.Error(err)
+	} else if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+
+	got, err = parseString([]byte{'t', 'e', 's', 't'})
+	if err == nil {
+		t.Errorf("got (%q, nil), want (\"\", ErrorInvalid)", got)
+	}
+}

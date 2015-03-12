@@ -290,6 +290,10 @@ func (b *Buffer) flush() error {
 	}
 
 	buf := make([]byte, b.buffer.Len())
+	if _, err := b.buffer.Read(buf); err != nil {
+		return err
+	}
+
 	if b.username != "" && b.password != "" {
 		if b.encrypt {
 			var err error
@@ -299,10 +303,6 @@ func (b *Buffer) flush() error {
 		} else {
 			buf = sign(buf, b.username, b.password)
 		}
-	}
-
-	if _, err := b.buffer.Read(buf); err != nil {
-		return err
 	}
 
 	if _, err := b.output.Write(buf); err != nil {

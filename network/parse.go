@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+	"time"
+
+	"collectd.org/api"
+	cdtime "collectd.org/time"
 )
 
 const (
@@ -82,164 +86,172 @@ func (p Packet) FormatName() string {
 	return metricName
 }
 
-func Packets(b []byte, types Types) (*[]Packet, error) {
-	packets := make([]Packet, 0)
+func Parse(b []byte, types Types) ([]api.ValueList, []error) {
+	var valueLists []api.ValueList
+	var errors []error
 
+	var state api.ValueList
 	buf := bytes.NewBuffer(b)
 
-	var packetHeader struct {
-		PartType   uint16
-		PartLength uint16
-	}
-
-	var err error
-	var packet Packet
-	var time uint64
-	var valueCount uint16
-	var valueTypes []uint8
-
 	for buf.Len() > 0 {
-		packetHeader.PartType = binary.BigEndian.Uint16(buf.Next(2))
-		packetHeader.PartLength = binary.BigEndian.Uint16(buf.Next(2))
+		partType := binary.BigEndian.Uint16(buf.Next(2))
+		partLength := int(binary.BigEndian.Uint16(buf.Next(2)))
 
-		if packetHeader.PartLength < 5 {
-			return nil, ErrorInvalid
+		if partLength < 5 || partLength-4 > buf.Len() {
+			errors = append(errors, ErrorInvalid)
+			return valueLists, errors
 		}
 
-		nextPos := int(packetHeader.PartLength) - 4
+		// First 4 bytes were already read
+		partLength -= 4
 
-		partBytes := buf.Next(nextPos)
-		if len(partBytes) < nextPos {
-			return nil, ErrorInvalid
+		payload := buf.Next(partLength)
+		if len(payload) != partLength {
+			errors = append(errors, ErrorInvalid)
+			return valueLists, errors
 		}
 
-		partBuffer := bytes.NewBuffer(partBytes)
-
-		switch packetHeader.PartType {
-		case typeEncryptAES256:
-			return nil, ErrorUnsupported
-		case typeHost:
-			str := partBuffer.String()
-			packet.Hostname = str[0 : len(str)-1]
+		switch partType {
+		case typeHost, typePlugin, typePluginInstance, typeType, typeTypeInstance:
+			str, err := parseString(payload)
+			if err != nil {
+				errors = append(errors, err)
+				continue
+			}
+			switch partType {
+			case typeHost:
+				state.Identifier.Host = str
+			case typePlugin:
+				state.Identifier.Plugin = str
+			case typePluginInstance:
+				state.Identifier.PluginInstance = str
+			case typeType:
+				state.Identifier.Type = str
+			case typeTypeInstance:
+				state.Identifier.TypeInstance = str
+			}
 		case typeInterval:
-			err = binary.Read(partBuffer, binary.BigEndian, &time)
+			i, err := parseInt(payload)
 			if err != nil {
-				return nil, err
+				errors = append(errors, err)
+				continue
 			}
-
-			packet.Interval = time
+			state.Interval = time.Duration(i) * time.Second
 		case typeIntervalHR:
-			err = binary.Read(partBuffer, binary.BigEndian, &time)
+			d, err := parseDuration(payload)
 			if err != nil {
-				return nil, err
+				errors = append(errors, err)
+				continue
 			}
-
-			packet.IntervalHR = time
-		case ParseMessage:
-			// ignore (notification)
-		case typePlugin:
-			str := partBuffer.String()
-			packet.Plugin = str[0 : len(str)-1]
-		case typePluginInstance:
-			str := partBuffer.String()
-			packet.PluginInstance = str[0 : len(str)-1]
-		case ParseSeverity:
-			// ignore (notification)
-		case typeSignSHA256:
-			return nil, ErrorUnsupported
+			state.Interval = d
 		case typeTime:
-			err = binary.Read(partBuffer, binary.BigEndian, &time)
+			i, err := parseInt(payload)
 			if err != nil {
-				return nil, err
+				errors = append(errors, err)
+				continue
 			}
-
-			packet.Time = time
+			state.Time = time.Unix(int64(i), 0)
 		case typeTimeHR:
-			err = binary.Read(partBuffer, binary.BigEndian, &time)
+			t, err := parseTime(payload)
 			if err != nil {
-				return nil, err
+				errors = append(errors, err)
+				continue
 			}
-
-			packet.TimeHR = time
-		case typeType:
-			str := partBuffer.String()
-			packet.Type = str[0 : len(str)-1]
-		case typeTypeInstance:
-			str := partBuffer.String()
-			packet.TypeInstance = str[0 : len(str)-1]
+			state.Time = t
 		case typeValues:
-			err = binary.Read(partBuffer, binary.BigEndian, &valueCount)
-			if err != nil {
-				return nil, err
+			vl := state
+			var err error
+			if vl.Values, err = parseValues(payload); err != nil {
+				errors = append(errors, err)
+				continue
 			}
 
-			valueTypes = make([]uint8, valueCount, valueCount)
-			packet.Values = make([]Value, valueCount, valueCount)
-			var packetValue Value
+			valueLists = append(valueLists, vl)
 
-			err = binary.Read(partBuffer, binary.BigEndian, &valueTypes)
-			if err != nil {
-				return nil, err
-			}
-
-			for i, t := range valueTypes {
-				packetValue.Type = t
-
-				if typeName, ok := ValueTypeValues[t]; ok {
-					packetValue.TypeName = typeName
-				}
-
-				if _, ok := types[packet.Type]; ok {
-					packetValue.Name = types[packet.Type][i].Name
-				}
-
-				switch t {
-				case dsTypeAbsolute:
-					var value uint64
-					err = binary.Read(partBuffer, binary.BigEndian, &value)
-					if err != nil {
-						return nil, err
-					}
-
-					packetValue.Value = float64(value)
-				case dsTypeCounter:
-					var value uint64
-					err = binary.Read(partBuffer, binary.BigEndian, &value)
-					if err != nil {
-						return nil, err
-					}
-
-					packetValue.Value = float64(value)
-				case dsTypeDerive:
-					var value int64
-					err = binary.Read(partBuffer, binary.BigEndian, &value)
-					if err != nil {
-						return nil, err
-					}
-
-					packetValue.Value = float64(value)
-				case dsTypeGauge:
-					var value float64
-					err = binary.Read(partBuffer, binary.LittleEndian, &value)
-					if err != nil {
-						return nil, err
-					}
-
-					packetValue.Value = float64(value)
-				default:
-					return nil, ErrorUnknownType
-				}
-
-				packet.Values[i] = packetValue
-			}
-
-			packets = append(packets, packet)
 		default:
 			// Ignore unknown fields
 		}
 	}
 
-	return &packets, nil
+	return valueLists, nil
+}
+
+func parseValues(b []byte) ([]api.Value, error) {
+	if len(b)%9 != 0 {
+		return nil, ErrorInvalid
+	}
+
+	n := len(b) / 9
+	types := b[:n]
+	buffer := bytes.NewBuffer(b[n:])
+	values := make([]api.Value, n)
+
+	for i, typ := range types {
+		switch typ {
+		case dsTypeGauge:
+			var f float64
+			if err := binary.Read(buffer, binary.LittleEndian, &f); err != nil {
+				return nil, err
+			}
+			values[i] = api.Gauge(f)
+
+		case dsTypeDerive, dsTypeCounter:
+			var i int64
+			if err := binary.Read(buffer, binary.BigEndian, &i); err != nil {
+				return nil, err
+			}
+			values[i] = api.Derive(i)
+
+		case dsTypeAbsolute:
+			return nil, ErrorUnsupported
+
+		default:
+			return nil, ErrorInvalid
+		}
+	}
+
+	return values, nil
+}
+
+func parseTime(b []byte) (time.Time, error) {
+	s, err := parseInt(b)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return cdtime.Time(s).Time(), nil
+}
+
+func parseDuration(b []byte) (time.Duration, error) {
+	s, err := parseInt(b)
+	if err != nil {
+		return time.Duration(0), err
+	}
+
+	return cdtime.Time(s).Duration(), nil
+}
+
+func parseInt(b []byte) (uint64, error) {
+	if len(b) != 8 {
+		return 0, ErrorInvalid
+	}
+
+	var i uint64
+	buf := bytes.NewBuffer(b)
+	if err := binary.Read(buf, binary.BigEndian, &i); err != nil {
+		return 0, err
+	}
+
+	return i, nil
+}
+
+func parseString(b []byte) (string, error) {
+	if b[len(b)-1] != 0 {
+		return "", ErrorInvalid
+	}
+
+	buf := bytes.NewBuffer(b[:len(b)-1])
+	return buf.String(), nil
 }
 
 func TypesDBFile(path string) (Types, error) {

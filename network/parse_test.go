@@ -139,21 +139,20 @@ var typesDB = func() Types {
 
 func TestPackets(t *testing.T) {
 	for i, raw := range rawPacketData {
-		_, err := Packets(raw, typesDB)
-		if err != nil {
-			t.Errorf("i = %d: %s", i, err.Error())
+		_, errs := Parse(raw, typesDB)
+		if errs != nil {
+			t.Errorf("i = %d: %v", i, errs)
 		}
 	}
 }
 
-var result *[]Packet
-
 func BenchmarkPackets(b *testing.B) {
-	var r *[]Packet
 	for n := 0; n < b.N; n++ {
-		r, _ = Packets(rawPacketData[0], typesDB)
+		_, errs := Parse(rawPacketData[0], typesDB)
+		if errs != nil {
+			b.Error(errs)
+		}
 	}
-	result = r
 }
 
 // Collectd packets captured using Wireshark

@@ -96,6 +96,20 @@ func Parse(b []byte) ([]api.ValueList, error) {
 				return valueLists, errors.New("SHA256 signature failed verification")
 			}
 
+		case typeEncryptAES256:
+			plaintext, err := decryptAES256(payload, userToPassword)
+			if err != nil {
+				log.Printf("failed to decrypt encrypted data: %v", err)
+				continue
+			}
+			vls, err := Parse(plaintext)
+			if vls != nil {
+				valueLists = append(valueLists, vls...)
+			}
+			if err != nil {
+				return valueLists, err
+			}
+
 		default:
 			log.Printf("ignoring field of type %#x", partType)
 		}

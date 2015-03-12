@@ -12,10 +12,15 @@ import (
 	"collectd.org/cdtime"
 )
 
-var ErrorInvalid = errors.New("Invalid packet")
-var ErrorUnsupported = errors.New("Unsupported packet")
+// Common error conditions.
+var (
+	ErrorInvalid     = errors.New("Invalid packet")
+	ErrorUnsupported = errors.New("Unsupported packet")
+)
 
-// Parse parses the binary network format and returns all
+// Parse parses the binary network format and returns a slice of ValueLists. If
+// a parse error is encountered, all ValueLists parsed to this point are
+// returned as well as the error. Unknown "parts" are silently ignored.
 func Parse(b []byte) ([]api.ValueList, error) {
 	var valueLists []api.ValueList
 

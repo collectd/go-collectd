@@ -27,6 +27,9 @@ func Parse(b []byte) ([]api.ValueList, error) {
 	var state api.ValueList
 	buf := bytes.NewBuffer(b)
 
+	// FIXME
+	userToPassword := make(map[string]string)
+
 	for buf.Len() > 0 {
 		partType := binary.BigEndian.Uint16(buf.Next(2))
 		partLength := int(binary.BigEndian.Uint16(buf.Next(2)))
@@ -84,6 +87,14 @@ func Parse(b []byte) ([]api.ValueList, error) {
 			}
 
 			valueLists = append(valueLists, vl)
+
+		case typeSignSHA256:
+			ok, err := verifySHA256(payload, buf.Bytes(), userToPassword)
+			if err != nil {
+				return valueLists, err
+			} else if !ok {
+				return valueLists, errors.New("SHA256 signature failed verification")
+			}
 
 		default:
 			log.Printf("ignoring field of type %#x", partType)

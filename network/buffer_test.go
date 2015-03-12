@@ -69,7 +69,7 @@ func TestWriteValueList(t *testing.T) {
 }
 
 func TestWriteTime(t *testing.T) {
-	b := &Buffer{buffer: new(bytes.Buffer)}
+	b := &Buffer{buffer: new(bytes.Buffer), size: DefaultBufferSize}
 	b.writeTime(time.Unix(1426083986, 314000000)) // Wed Mar 11 15:26:26 CET 2015
 
 	// 1426083986.314 * 2^30 -> 1531246020641985396.736
@@ -86,7 +86,7 @@ func TestWriteTime(t *testing.T) {
 }
 
 func TestWriteValues(t *testing.T) {
-	b := &Buffer{buffer: new(bytes.Buffer)}
+	b := &Buffer{buffer: new(bytes.Buffer), size: DefaultBufferSize}
 
 	b.writeValues([]api.Value{
 		api.Gauge(42),
@@ -110,9 +110,11 @@ func TestWriteValues(t *testing.T) {
 }
 
 func TestWriteString(t *testing.T) {
-	b := &Buffer{buffer: new(bytes.Buffer)}
+	b := &Buffer{buffer: new(bytes.Buffer), size: DefaultBufferSize}
 
-	b.writeString(0xf007, "foo")
+	if err := b.writeString(0xf007, "foo"); err != nil {
+		t.Errorf("got %v, want nil", err)
+	}
 
 	want := []byte{0xf0, 0x07, // pkg type
 		0, 8, // pkg len
@@ -126,9 +128,11 @@ func TestWriteString(t *testing.T) {
 }
 
 func TestWriteInt(t *testing.T) {
-	b := &Buffer{buffer: new(bytes.Buffer)}
+	b := &Buffer{buffer: new(bytes.Buffer), size: DefaultBufferSize}
 
-	b.writeInt(23, uint64(384))
+	if err := b.writeInt(23, uint64(384)); err != nil {
+		t.Errorf("got %v, want nil", err)
+	}
 
 	want := []byte{0, 23, // pkg type
 		0, 12, // pkg len

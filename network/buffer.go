@@ -20,8 +20,10 @@ import (
 )
 
 const (
-	dsTypeGauge  = 1
-	dsTypeDerive = 2
+	dsTypeCounter  = 0
+	dsTypeGauge    = 1
+	dsTypeDerive   = 2
+	dsTypeAbsolute = 3
 )
 
 const (

@@ -10,33 +10,12 @@ import (
 )
 
 const (
-	TypeCounter  = 0
-	TypeGauge    = 1
-	TypeDerive   = 2
-	TypeAbsolute = 3
-)
-
-const (
 	// Values taken from commit 633c3966f7 of
 	// https://github.com/collectd/collectd/commits/master/src/network.h
-
-	ParseHost           = 0x0000
-	ParseTime           = 0x0001
-	ParsePlugin         = 0x0002
-	ParsePluginInstance = 0x0003
-	ParseType           = 0x0004
-	ParseTypeInstance   = 0x0005
-	ParseValues         = 0x0006
-	ParseInterval       = 0x0007
-	ParseTimeHR         = 0x0008
-	ParseIntervalHR     = 0x0009
 
 	// Notifications
 	ParseMessage  = 0x0100
 	ParseSeverity = 0x0101
-
-	ParseSignature  = 0x0200
-	ParseEncryption = 0x0210
 )
 
 var ErrorInvalid = errors.New("Invalid packet")
@@ -45,17 +24,17 @@ var ErrorUnknownType = errors.New("Unknown value type")
 var ErrorUnknownDataType = errors.New("Unknown data source type")
 
 var ValueTypeNames = map[string]uint8{
-	"absolute": TypeAbsolute,
-	"counter":  TypeCounter,
-	"derive":   TypeDerive,
-	"gauge":    TypeGauge,
+	"absolute": dsTypeAbsolute,
+	"counter":  dsTypeCounter,
+	"derive":   dsTypeDerive,
+	"gauge":    dsTypeGauge,
 }
 
 var ValueTypeValues = map[uint8]string{
-	TypeAbsolute: "absolute",
-	TypeCounter:  "counter",
-	TypeDerive:   "derive",
-	TypeGauge:    "gauge",
+	dsTypeAbsolute: "absolute",
+	dsTypeCounter:  "counter",
+	dsTypeDerive:   "derive",
+	dsTypeGauge:    "gauge",
 }
 
 type Packet struct {
@@ -137,19 +116,19 @@ func Packets(b []byte, types Types) (*[]Packet, error) {
 		partBuffer := bytes.NewBuffer(partBytes)
 
 		switch packetHeader.PartType {
-		case ParseEncryption:
+		case typeEncryptAES256:
 			return nil, ErrorUnsupported
-		case ParseHost:
+		case typeHost:
 			str := partBuffer.String()
 			packet.Hostname = str[0 : len(str)-1]
-		case ParseInterval:
+		case typeInterval:
 			err = binary.Read(partBuffer, binary.BigEndian, &time)
 			if err != nil {
 				return nil, err
 			}
 
 			packet.Interval = time
-		case ParseIntervalHR:
+		case typeIntervalHR:
 			err = binary.Read(partBuffer, binary.BigEndian, &time)
 			if err != nil {
 				return nil, err
@@ -158,37 +137,37 @@ func Packets(b []byte, types Types) (*[]Packet, error) {
 			packet.IntervalHR = time
 		case ParseMessage:
 			// ignore (notification)
-		case ParsePlugin:
+		case typePlugin:
 			str := partBuffer.String()
 			packet.Plugin = str[0 : len(str)-1]
-		case ParsePluginInstance:
+		case typePluginInstance:
 			str := partBuffer.String()
 			packet.PluginInstance = str[0 : len(str)-1]
 		case ParseSeverity:
 			// ignore (notification)
-		case ParseSignature:
+		case typeSignSHA256:
 			return nil, ErrorUnsupported
-		case ParseTime:
+		case typeTime:
 			err = binary.Read(partBuffer, binary.BigEndian, &time)
 			if err != nil {
 				return nil, err
 			}
 
 			packet.Time = time
-		case ParseTimeHR:
+		case typeTimeHR:
 			err = binary.Read(partBuffer, binary.BigEndian, &time)
 			if err != nil {
 				return nil, err
 			}
 
 			packet.TimeHR = time
-		case ParseType:
+		case typeType:
 			str := partBuffer.String()
 			packet.Type = str[0 : len(str)-1]
-		case ParseTypeInstance:
+		case typeTypeInstance:
 			str := partBuffer.String()
 			packet.TypeInstance = str[0 : len(str)-1]
-		case ParseValues:
+		case typeValues:
 			err = binary.Read(partBuffer, binary.BigEndian, &valueCount)
 			if err != nil {
 				return nil, err
@@ -215,7 +194,7 @@ func Packets(b []byte, types Types) (*[]Packet, error) {
 				}
 
 				switch t {
-				case TypeAbsolute:
+				case dsTypeAbsolute:
 					var value uint64
 					err = binary.Read(partBuffer, binary.BigEndian, &value)
 					if err != nil {
@@ -223,7 +202,7 @@ func Packets(b []byte, types Types) (*[]Packet, error) {
 					}
 
 					packetValue.Value = float64(value)
-				case TypeCounter:
+				case dsTypeCounter:
 					var value uint64
 					err = binary.Read(partBuffer, binary.BigEndian, &value)
 					if err != nil {
@@ -231,7 +210,7 @@ func Packets(b []byte, types Types) (*[]Packet, error) {
 					}
 
 					packetValue.Value = float64(value)
-				case TypeDerive:
+				case dsTypeDerive:
 					var value int64
 					err = binary.Read(partBuffer, binary.BigEndian, &value)
 					if err != nil {
@@ -239,7 +218,7 @@ func Packets(b []byte, types Types) (*[]Packet, error) {
 					}
 
 					packetValue.Value = float64(value)
-				case TypeGauge:
+				case dsTypeGauge:
 					var value float64
 					err = binary.Read(partBuffer, binary.LittleEndian, &value)
 					if err != nil {

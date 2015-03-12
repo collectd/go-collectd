@@ -88,12 +88,12 @@ func TestTypesDB(t *testing.T) {
 		t.Errorf("ds.Name = %s; expected \"uncompressed\"", ds.Name)
 	}
 
-	if ds.Type != TypeDerive {
+	if ds.Type != dsTypeDerive {
 		dsType, ok := ValueTypeValues[ds.Type]
 		if !ok {
 			t.Error("unrecognized type")
 		} else {
-			t.Errorf("ds.Type = %s; expected TypeDerive", dsType)
+			t.Errorf("ds.Type = %s; expected dsTypeDerive", dsType)
 		}
 	}
 
@@ -111,12 +111,12 @@ func TestTypesDB(t *testing.T) {
 		t.Errorf("ds.Name = %s; expected \"uncompressed\"", ds.Name)
 	}
 
-	if ds.Type != TypeDerive {
+	if ds.Type != dsTypeDerive {
 		dsType, ok := ValueTypeValues[ds.Type]
 		if !ok {
 			t.Error("unrecognized type")
 		} else {
-			t.Errorf("ds.Type = %s; expected TypeDerive", dsType)
+			t.Errorf("ds.Type = %s; expected dsTypeDerive", dsType)
 		}
 	}
 

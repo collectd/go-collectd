@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"collectd.org/api"
-	cdtime "collectd.org/time"
+	"collectd.org/cdtime"
 )
 
 const (

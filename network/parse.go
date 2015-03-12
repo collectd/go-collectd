@@ -1,6 +1,4 @@
-// Parse data from the collectd network plugin
-// This is modeled after collectd's own network.c
-package gollectd
+package network
 
 import (
 	"bytes"

@@ -1,10 +1,8 @@
-package gollectd
+package network
 
 import (
 	"encoding/hex"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 type FormatTests struct {
@@ -57,11 +55,13 @@ var formatTests = []FormatTests{
 }
 
 func TestFormat(t *testing.T) {
-	assert := assert.New(t)
-
 	for _, test := range formatTests {
 		got := test.Packet.FormatName()
-		assert.Equal(test.Expected, got, test.Description)
+		want := test.Expected
+
+		if got != want {
+			t.Errorf("%s: got %q, want %q", test.Description, got, want)
+		}
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"io"
 	"log"
 	"math"
@@ -39,6 +40,8 @@ const (
 )
 
 const DefaultBufferSize = 1452
+
+var errNotEnoughSpace = errors.New("not enough space")
 
 // Buffer contains the binary representation of multiple ValueLists and state
 // optimally write the next ValueList.
@@ -94,12 +97,21 @@ func NewBufferEncrypted(w io.Writer, username, password string) *Buffer {
 	}
 }
 
+// Free returns the number of bytes still available in the buffer.
+func (b *Buffer) Free() int {
+	used := b.buffer.Len()
+	if b.size < used {
+		return 0
+	}
+	return b.size - used
+}
+
 // Flush writes all data currently in the buffer to the associated io.Writer.
 func (b *Buffer) Flush() error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	return b.flush(b.buffer.Len())
+	return b.flush()
 }
 
 // WriteValueList adds a ValueList to the network buffer.
@@ -107,43 +119,80 @@ func (b *Buffer) WriteValueList(vl api.ValueList) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	origLen := b.buffer.Len()
+	l := b.buffer.Len()
 
-	b.writeIdentifier(vl.Identifier)
-	b.writeTime(vl.Time)
-	b.writeInterval(vl.Interval)
-	b.writeValues(vl.Values)
-
-	if b.buffer.Len() >= b.size {
-		if err := b.flush(origLen); err != nil {
+	if err := b.writeValueList(vl); err != nil {
+		// Buffer is empty; we can't flush and retry.
+		if l == 0 {
 			return err
 		}
+	} else {
+		return nil
+	}
+
+	// flush
+	b.buffer.Truncate(l)
+	if err := b.flush(); err != nil {
+		return err
+	}
+
+	// retry
+	return b.writeValueList(vl)
+}
+
+func (b *Buffer) writeValueList(vl api.ValueList) error {
+	if err := b.writeIdentifier(vl.Identifier); err != nil {
+		return err
+	}
+
+	if err := b.writeTime(vl.Time); err != nil {
+		return err
+	}
+
+	if err := b.writeInterval(vl.Interval); err != nil {
+		return err
+	}
+
+	if err := b.writeValues(vl.Values); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (b *Buffer) writeIdentifier(id api.Identifier) {
+func (b *Buffer) writeIdentifier(id api.Identifier) error {
 	if id.Host != b.state.Host {
-		b.writeString(typeHost, id.Host)
+		if err := b.writeString(typeHost, id.Host); err != nil {
+			return err
+		}
 		b.state.Host = id.Host
 	}
 	if id.Plugin != b.state.Plugin {
-		b.writeString(typePlugin, id.Plugin)
+		if err := b.writeString(typePlugin, id.Plugin); err != nil {
+			return err
+		}
 		b.state.Plugin = id.Plugin
 	}
 	if id.PluginInstance != b.state.PluginInstance {
-		b.writeString(typePluginInstance, id.PluginInstance)
+		if err := b.writeString(typePluginInstance, id.PluginInstance); err != nil {
+			return err
+		}
 		b.state.PluginInstance = id.PluginInstance
 	}
 	if id.Type != b.state.Type {
-		b.writeString(typeType, id.Type)
+		if err := b.writeString(typeType, id.Type); err != nil {
+			return err
+		}
 		b.state.Type = id.Type
 	}
 	if id.TypeInstance != b.state.TypeInstance {
-		b.writeString(typeTypeInstance, id.TypeInstance)
+		if err := b.writeString(typeTypeInstance, id.TypeInstance); err != nil {
+			return err
+		}
 		b.state.TypeInstance = id.TypeInstance
 	}
+
+	return nil
 }
 
 func (b *Buffer) writeTime(t time.Time) error {
@@ -165,7 +214,10 @@ func (b *Buffer) writeInterval(d time.Duration) error {
 }
 
 func (b *Buffer) writeValues(values []api.Value) error {
-	size := uint16(6 + 9*len(values))
+	size := 6 + 9*len(values)
+	if size > b.Free() {
+		return errNotEnoughSpace
+	}
 
 	binary.Write(b.buffer, binary.BigEndian, uint16(typeValues))
 	binary.Write(b.buffer, binary.BigEndian, uint16(size))
@@ -207,29 +259,37 @@ func (b *Buffer) writeString(typ uint16, s string) error {
 
 	// Because s is a Unicode string, encoded.Len() may be larger than
 	// len(s).
-	size := uint16(4 + encoded.Len())
+	size := 4 + encoded.Len()
+	if size > b.Free() {
+		return errNotEnoughSpace
+	}
 
 	binary.Write(b.buffer, binary.BigEndian, typ)
-	binary.Write(b.buffer, binary.BigEndian, size)
+	binary.Write(b.buffer, binary.BigEndian, uint16(size))
 	b.buffer.Write(encoded.Bytes())
 
 	return nil
 }
 
 func (b *Buffer) writeInt(typ uint16, n uint64) error {
+	size := 12
+	if size > b.Free() {
+		return errNotEnoughSpace
+	}
+
 	binary.Write(b.buffer, binary.BigEndian, typ)
-	binary.Write(b.buffer, binary.BigEndian, uint16(12))
+	binary.Write(b.buffer, binary.BigEndian, uint16(size))
 	binary.Write(b.buffer, binary.BigEndian, n)
 
 	return nil
 }
 
-func (b *Buffer) flush(n int) error {
-	if n == 0 {
+func (b *Buffer) flush() error {
+	if b.buffer.Len() == 0 {
 		return nil
 	}
 
-	buf := make([]byte, n)
+	buf := make([]byte, b.buffer.Len())
 	if b.username != "" && b.password != "" {
 		if b.encrypt {
 			var err error
@@ -249,6 +309,8 @@ func (b *Buffer) flush(n int) error {
 		return err
 	}
 
+	// zero state
+	b.state = api.ValueList{}
 	return nil
 }
 

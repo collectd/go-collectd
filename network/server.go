@@ -1,59 +1,52 @@
 package network
 
 import (
-	"fmt"
 	"log"
 	"net"
 
-	collectd "github.com/kimor79/gollectd"
+	"collectd.org/api"
 )
 
-// Listen for collectd network packets, parse , and send them over a channel
-func Listen(addr string, c chan collectd.Packet, typesdb string) {
-	laddr, err := net.ResolveUDPAddr("udp", addr)
+// ListenAndDispatch listens on the provided UDP address, parses the received
+// packets and dispatches them to the provided dispatcher.
+func ListenAndDispatch(address string, d api.Dispatcher) error {
+	laddr, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {
-		log.Fatalln("fatal: failed to resolve address", err)
+		return err
 	}
 
-	conn, err := net.ListenUDP("udp", laddr)
-	if err != nil {
-		log.Fatalln("fatal: failed to listen", err)
+	var sock *net.UDPConn
+	if laddr.IP.IsMulticast() {
+		sock, err = net.ListenMulticastUDP("udp", nil /* interface */, laddr)
+	} else {
+		sock, err = net.ListenUDP("udp", laddr)
 	}
-
-	types, err := collectd.TypesDBFile(typesdb)
 	if err != nil {
-		log.Fatalln("fatal: failed to parse types.db", err)
+		return err
 	}
+	defer sock.Close()
 
+	buf := make([]byte, DefaultBufferSize)
 	for {
-		// 1452 is collectd 5's default buffer size. See:
-		// https://collectd.org/wiki/index.php/Binary_protocol
-		buf := make([]byte, 1452)
-
-		n, err := conn.Read(buf[:])
+		n, err := sock.Read(buf)
 		if err != nil {
-			log.Println("error: Failed to receive packet", err)
+			return err
+		}
+
+		valueLists, err := Parse(buf[:n])
+		if err != nil {
+			log.Printf("error while parsing: %v", err)
 			continue
 		}
 
-		packets, err := collectd.Packets(buf[0:n], types)
-		if err != nil {
-			log.Println("error: Failed to receive packet", err)
-			continue
-		}
-
-		for _, p := range *packets {
-			c <- p
-		}
+		go dispatch(valueLists, d)
 	}
 }
 
-func main() {
-	c := make(chan collectd.Packet)
-	go Listen("127.0.0.1:25826", c, "/usr/share/collectd/types.db")
-
-	for {
-		packet := <-c
-		fmt.Printf("%+v\n", packet)
+func dispatch(valueLists []api.ValueList, d api.Dispatcher) {
+	for _, vl := range valueLists {
+		if err := d.Dispatch(vl); err != nil {
+			log.Printf("error while dispatching: %v", err)
+		}
 	}
 }

@@ -1,3 +1,6 @@
+/*
+Package network implements collectd's binary network protocol.
+*/
 package network
 
 import (
@@ -6,8 +9,12 @@ import (
 	"collectd.org/api"
 )
 
-// DefaultService is the default port used by collectd's network plugin.
-const DefaultService = "25826"
+// Well-known addresses and port.
+const (
+	DefaultIPv4Address = "239.192.74.66"
+	DefaultIPv6Address = "ff18::efc0:4a42"
+	DefaultService     = "25826"
+)
 
 // Conn is a client connection to a collectd server. It implements the
 // api.Dispatcher interface.

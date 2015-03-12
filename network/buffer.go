@@ -365,7 +365,7 @@ func encrypt(plaintext []byte, username, password string) ([]byte, error) {
 	checksum := sha1.Sum(plaintext)
 
 	out := new(bytes.Buffer)
-	binary.Write(out, binary.BigEndian, uint16(typeSignSHA256))
+	binary.Write(out, binary.BigEndian, uint16(typeEncryptAES256))
 	binary.Write(out, binary.BigEndian, size)
 	binary.Write(out, binary.BigEndian, uint16(usernameBuffer.Len()))
 	out.Write(usernameBuffer.Bytes())

@@ -29,10 +29,44 @@ func Dial(address string) (*Conn, error) {
 	}, nil
 }
 
+// DialSigned connects to the collectd server at "address". Data is signed with
+// the given username and password.
+func DialSigned(address, username, password string) (*Conn, error) {
+	c, err := net.Dial("udp", address)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Conn{
+		udp:    c,
+		buffer: NewBufferSigned(c, username, password),
+	}, nil
+}
+
+// DialEncrypted connects to the collectd server at "address". Data is
+// encrypted with the given username and password.
+func DialEncrypted(address, username, password string) (*Conn, error) {
+	c, err := net.Dial("udp", address)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Conn{
+		udp:    c,
+		buffer: NewBufferEncrypted(c, username, password),
+	}, nil
+}
+
 // WriteValueList adds a ValueList to the internal buffer. Data is only written
 // to the network when the buffer is full.
 func (c *Conn) WriteValueList(vl api.ValueList) error {
 	return c.buffer.WriteValueList(vl)
+}
+
+// Flush writes the contents of the underlying buffer to the network
+// immediately.
+func (c *Conn) Flush() error {
+	return c.buffer.Flush()
 }
 
 // Close closes a connection. You must not use "c" after this call.

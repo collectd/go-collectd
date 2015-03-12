@@ -39,6 +39,9 @@ const (
 	typeEncryptAES256  = 0x0210
 )
 
+// Default size of "Buffer". This is based on the maximum bytes that fit into
+// an Ethernet frame without fragmentation:
+//   <Ethernet frame> - (<IPv6 header> + <UDP header>) = 1500 - (40 + 8) = 1452
 const DefaultBufferSize = 1452
 
 var errNotEnoughSpace = errors.New("not enough space")

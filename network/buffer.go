@@ -268,7 +268,7 @@ func (b *Buffer) flush() error {
 	if b.username != "" && b.password != "" {
 		if b.encrypt {
 			var err error
-			if buf, err = encrypt(buf, b.username, b.password); err != nil {
+			if buf, err = encryptAES256(buf, b.username, b.password); err != nil {
 				return err
 			}
 		} else {

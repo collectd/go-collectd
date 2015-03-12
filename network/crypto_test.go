@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
 )
@@ -40,5 +41,42 @@ func TestSign(t *testing.T) {
 	ok, err = verifySHA256(want[4:41], want[41:], userToPassword)
 	if ok || err != nil {
 		t.Errorf("got (%v, %v), want (false, nil)", ok, err)
+	}
+}
+
+func TestEncrypt(t *testing.T) {
+	plaintext := []byte{'c', 'o', 'l', 'l', 'e', 'c', 't', 'd'}
+	// actual ciphertext depends on IV -- only check the first part
+	want := []byte{
+		0x02, 0x10, // part type
+		0x00, 0x37, // part length
+		0x00, 0x05, // username length
+		0x61, 0x64, 0x6d, 0x69, 0x6e, // username
+		// IV
+		// SHA1
+		// encrypted data
+	}
+
+	ciphertext, err := encryptAES256(plaintext, "admin", "admin")
+	if !bytes.Equal(want, ciphertext[:11]) || err != nil {
+		t.Errorf("got (%v, %v), want (%v, nil)", ciphertext[:11], err, want)
+	}
+
+	userToPassword := map[string]string{
+		"admin": "admin",
+	}
+	if got, err := decryptAES256(ciphertext[4:], userToPassword); !bytes.Equal(got, plaintext) || err != nil {
+		t.Errorf("got (%v, %v), want (%v, nil)", got, err, plaintext)
+	}
+
+	ciphertext[47], ciphertext[48] = ciphertext[48], ciphertext[47] // corrupt data
+	if got, err := decryptAES256(ciphertext[4:], userToPassword); got != nil || err == nil {
+		t.Errorf("got (%v, %v), want (nil, \"checksum mismatch\")", got, err)
+	}
+
+	ciphertext[47], ciphertext[48] = ciphertext[48], ciphertext[47] // fix data
+	userToPassword["admin"] = "test123"                             // different password
+	if got, err := decryptAES256(ciphertext[4:], userToPassword); got != nil || err == nil {
+		t.Errorf("got (%v, %v), want (nil, \"no such user\")", got, err)
 	}
 }

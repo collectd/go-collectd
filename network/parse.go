@@ -160,36 +160,45 @@ func Parse(b []byte) ([]api.ValueList, error) {
 }
 
 func parseValues(b []byte) ([]api.Value, error) {
-	if len(b)%9 != 0 {
-		return nil, ErrorInvalid
+	buffer := bytes.NewBuffer(b)
+
+	var n uint16
+	if err := binary.Read(buffer, binary.BigEndian, &n); err != nil {
+		return nil, err
 	}
 
-	n := len(b) / 9
-	types := b[:n]
-	buffer := bytes.NewBuffer(b[n:])
+	if int(n*9) != buffer.Len() {
+		return nil, fmt.Errorf("parseValues: length mismatch: %d vs %d", n*9, buffer.Len())
+	}
+
+	types := make([]byte, n)
 	values := make([]api.Value, n)
+
+	if _, err := buffer.Read(types); err != nil {
+		return nil, err
+	}
 
 	for i, typ := range types {
 		switch typ {
 		case dsTypeGauge:
-			var f float64
-			if err := binary.Read(buffer, binary.LittleEndian, &f); err != nil {
+			var v float64
+			if err := binary.Read(buffer, binary.LittleEndian, &v); err != nil {
 				return nil, err
 			}
-			values[i] = api.Gauge(f)
+			values[i] = api.Gauge(v)
 
 		case dsTypeDerive, dsTypeCounter:
-			var i int64
-			if err := binary.Read(buffer, binary.BigEndian, &i); err != nil {
+			var v int64
+			if err := binary.Read(buffer, binary.BigEndian, &v); err != nil {
 				return nil, err
 			}
-			values[i] = api.Derive(i)
+			values[i] = api.Derive(v)
 
 		case dsTypeAbsolute:
 			return nil, ErrorUnsupported
 
 		default:
-			return nil, ErrorInvalid
+			return nil, fmt.Errorf("parseValues: invalid data source %d", typ)
 		}
 	}
 

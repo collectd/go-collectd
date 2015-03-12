@@ -3,7 +3,6 @@
 package exec
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -13,6 +12,9 @@ import (
 	"collectd.org/api"
 	"collectd.org/format"
 )
+
+// Putval is the dispatcher used by the exec package to print ValueLists.
+var Putval api.Dispatcher = format.NewPutval(os.Stdout)
 
 type valueCallback struct {
 	callback func() api.Value
@@ -100,7 +102,7 @@ func (cb valueCallback) run(g *sync.WaitGroup) {
 		case _ = <-ticker.C:
 			cb.vl.Values[0] = cb.callback()
 			cb.vl.Time = time.Now()
-			Dispatch(cb.vl)
+			Putval.Dispatch(cb.vl)
 		case _ = <-cb.done:
 			g.Done()
 			return
@@ -128,12 +130,6 @@ func (cb voidCallback) run(g *sync.WaitGroup) {
 
 func (cb voidCallback) stop() {
 	cb.done <- true
-}
-
-// Dispatch prints the ValueList to STDOUT in the format understood by the exec
-// plugin.
-func Dispatch(vl api.ValueList) {
-	fmt.Print(format.Putval(vl))
 }
 
 // Interval determines the default interval from the "COLLECTD_INTERVAL"

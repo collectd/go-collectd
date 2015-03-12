@@ -1,13 +1,11 @@
 package exec
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	"collectd.org/api"
-	"collectd.org/format"
 )
 
 func TestSanitizeInterval(t *testing.T) {
@@ -79,7 +77,7 @@ func Example() {
 		for _, d := range data {
 			vl.Values[0] = d.Value
 			vl.Identifier.TypeInstance = d.TypeInstance
-			fmt.Print(format.Putval(vl))
+			Putval.Dispatch(vl)
 		}
 	}
 	e.VoidCallback(bicycles, time.Second)

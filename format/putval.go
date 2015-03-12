@@ -4,18 +4,42 @@ package format
 
 import (
 	"fmt"
+	"io"
 	"strings"
+	"time"
 
 	"collectd.org/api"
 )
 
-func formatValues(vl api.ValueList) string {
+// Putval implements the Dispatcher interface for PUTVAL formatted output.
+type Putval struct {
+	w io.Writer
+}
+
+// NewPutval returns a new Putval object writing to the provided io.Writer.
+func NewPutval(w io.Writer) *Putval {
+	return &Putval{
+		w: w,
+	}
+}
+
+// Dispatch formats the ValueList in the PUTVAL format and writes it to the
+// assiciated io.Writer.
+func (p *Putval) Dispatch(vl api.ValueList) error {
+	s, err := formatValues(vl)
+	if err != nil {
+		return err
+	}
+
+	_, err = fmt.Fprintf(p.w, "PUTVAL %q interval=%.3f %s\n",
+		vl.Identifier.String(), vl.Interval.Seconds(), s)
+	return err
+}
+
+func formatValues(vl api.ValueList) (string, error) {
 	fields := make([]string, 1+len(vl.Values))
 
-	fields[0] = "N"
-	if !vl.Time.IsZero() {
-		fields[0] = fmt.Sprintf("%.3f", float64(vl.Time.UnixNano())/1000000000.0)
-	}
+	fields[0] = formatTime(vl.Time)
 
 	for i, v := range vl.Values {
 		switch v := v.(type) {
@@ -24,14 +48,17 @@ func formatValues(vl api.ValueList) string {
 		case api.Derive:
 			fields[i+1] = fmt.Sprintf("%d", v)
 		default:
-			panic(fmt.Errorf("Value has unexpected type %T", v))
+			return "", fmt.Errorf("Value has unexpected type %T", v)
 		}
 	}
 
-	return strings.Join(fields, ":")
+	return strings.Join(fields, ":"), nil
 }
 
-// Putval formats the ValueList in the "PUTVAL" format.
-func Putval(vl api.ValueList) string {
-	return fmt.Sprintf("PUTVAL %q interval=%.3f %s\n", vl.Identifier.String(), vl.Interval.Seconds(), formatValues(vl))
+func formatTime(t time.Time) string {
+	if t.IsZero() {
+		return "N"
+	}
+
+	return fmt.Sprintf("%.3f", float64(t.UnixNano())/1000000000.0)
 }

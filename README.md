@@ -36,15 +36,17 @@ The reposiroty is organized as follows:
 
 * Package `collectd.org/api` declares data structures you may already know from
   the *collectd* source code itself, such as `ValueList`.
-* Package `collectd.org/format` declares functions for formatting *ValueLists*
-  in other format. Right now, only `PUTVAL` is implemented. Eventually I plan
-  to add parsers for some formats, such as the JSON export. A converter to/from
-  the binary network protocol might also go here.
 * Package `collectd.org/exec` declares some utilities for writing binaries to
   be executed with the *exec plugin*. It provides some utilities (getting the
   hostname, e.g.) and an executor which you may use to easily schedule function
   calls.
+* Package `collectd.org/format` declares functions for formatting *ValueLists*
+  in other format. Right now, only `PUTVAL` is implemented. Eventually I plan
+  to add parsers for some formats, such as the JSON export.
+* Package `collectd.org/network` implements collectd's
+  [binary network protocol](https://collectd.org/wiki/index.php/Binary_protocol).
+  Currently, only a client implementation is available.
 
 # Author
 
-Florian "octo" Forster <ff at octo.it>
+Florian "octo" Forster &lt;ff at octo.it&gt;

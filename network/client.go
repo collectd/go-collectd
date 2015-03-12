@@ -1,19 +1,9 @@
-/*
-Package network implements collectd's binary network protocol.
-*/
 package network
 
 import (
 	"net"
 
 	"collectd.org/api"
-)
-
-// Well-known addresses and port.
-const (
-	DefaultIPv4Address = "239.192.74.66"
-	DefaultIPv6Address = "ff18::efc0:4a42"
-	DefaultService     = "25826"
 )
 
 // Client is a connection to a collectd server. It implements the

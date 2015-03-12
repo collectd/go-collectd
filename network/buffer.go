@@ -19,33 +19,6 @@ import (
 	"collectd.org/api"
 )
 
-const (
-	dsTypeCounter  = 0
-	dsTypeGauge    = 1
-	dsTypeDerive   = 2
-	dsTypeAbsolute = 3
-)
-
-const (
-	typeHost           = 0x0000
-	typeTime           = 0x0001
-	typeTimeHR         = 0x0008
-	typePlugin         = 0x0002
-	typePluginInstance = 0x0003
-	typeType           = 0x0004
-	typeTypeInstance   = 0x0005
-	typeValues         = 0x0006
-	typeInterval       = 0x0007
-	typeIntervalHR     = 0x0009
-	typeSignSHA256     = 0x0200
-	typeEncryptAES256  = 0x0210
-)
-
-// Default size of "Buffer". This is based on the maximum bytes that fit into
-// an Ethernet frame without fragmentation:
-//   <Ethernet frame> - (<IPv6 header> + <UDP header>) = 1500 - (40 + 8) = 1452
-const DefaultBufferSize = 1452
-
 var errNotEnoughSpace = errors.New("not enough space")
 
 // Buffer contains the binary representation of multiple ValueLists and state

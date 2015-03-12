@@ -137,11 +137,11 @@ var typesDB = func() Types {
 	return t
 }()
 
-func TestPackets(t *testing.T) {
+func TestParse(t *testing.T) {
 	for i, raw := range rawPacketData {
-		_, errs := Parse(raw, typesDB)
-		if errs != nil {
-			t.Errorf("i = %d: %v", i, errs)
+		vl, err := Parse(raw)
+		if err != nil {
+			t.Errorf("%d: got (%v, %v), want nil", i, vl, err)
 		}
 	}
 }

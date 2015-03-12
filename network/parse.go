@@ -86,9 +86,9 @@ func (p Packet) FormatName() string {
 	return metricName
 }
 
-func Parse(b []byte, types Types) ([]api.ValueList, []error) {
+// Parse parses the binary network format and returns all
+func Parse(b []byte) ([]api.ValueList, error) {
 	var valueLists []api.ValueList
-	var errors []error
 
 	var state api.ValueList
 	buf := bytes.NewBuffer(b)
@@ -98,8 +98,7 @@ func Parse(b []byte, types Types) ([]api.ValueList, []error) {
 		partLength := int(binary.BigEndian.Uint16(buf.Next(2)))
 
 		if partLength < 5 || partLength-4 > buf.Len() {
-			errors = append(errors, ErrorInvalid)
-			return valueLists, errors
+			return valueLists, fmt.Errorf("invalid length %d", partLength)
 		}
 
 		// First 4 bytes were already read
@@ -107,16 +106,14 @@ func Parse(b []byte, types Types) ([]api.ValueList, []error) {
 
 		payload := buf.Next(partLength)
 		if len(payload) != partLength {
-			errors = append(errors, ErrorInvalid)
-			return valueLists, errors
+			return valueLists, fmt.Errorf("invalid length: want %d, got %d", partLength, len(payload))
 		}
 
 		switch partType {
 		case typeHost, typePlugin, typePluginInstance, typeType, typeTypeInstance:
 			str, err := parseString(payload)
 			if err != nil {
-				errors = append(errors, err)
-				continue
+				return valueLists, err
 			}
 			switch partType {
 			case typeHost:
@@ -133,8 +130,7 @@ func Parse(b []byte, types Types) ([]api.ValueList, []error) {
 		case typeInterval, typeIntervalHR, typeTime, typeTimeHR:
 			i, err := parseInt(payload)
 			if err != nil {
-				errors = append(errors, err)
-				continue
+				return valueLists, err
 			}
 			switch partType {
 			case typeInterval:
@@ -150,14 +146,13 @@ func Parse(b []byte, types Types) ([]api.ValueList, []error) {
 			vl := state
 			var err error
 			if vl.Values, err = parseValues(payload); err != nil {
-				errors = append(errors, err)
-				continue
+				return valueLists, err
 			}
 
 			valueLists = append(valueLists, vl)
 
 		default:
-			// Ignore unknown fields
+			log.Printf("ignoring field of type %#x", partType)
 		}
 	}
 

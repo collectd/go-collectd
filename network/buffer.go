@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"collectd.org/api"
+	"collectd.org/cdtime"
 )
 
 // ErrNotEnoughSpace is returned when adding a ValueList would exeed the buffer
@@ -218,7 +219,7 @@ func (b *Buffer) writeTime(t time.Time) error {
 	}
 	b.state.Time = t
 
-	return b.writeInt(typeTimeHR, api.Cdtime(t))
+	return b.writeInt(typeTimeHR, uint64(cdtime.New(t)))
 }
 
 func (b *Buffer) writeInterval(d time.Duration) error {
@@ -227,7 +228,7 @@ func (b *Buffer) writeInterval(d time.Duration) error {
 	}
 	b.state.Interval = d
 
-	return b.writeInt(typeIntervalHR, api.CdtimeDuration(d))
+	return b.writeInt(typeIntervalHR, uint64(cdtime.NewDuration(d)))
 }
 
 func (b *Buffer) writeValues(values []api.Value) error {

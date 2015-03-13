@@ -52,21 +52,3 @@ func (id Identifier) String() string {
 	}
 	return str
 }
-
-func cdtimeNano(ns uint64) uint64 {
-	// break into seconds and nano-seconds so the left-shift doesn't overflow.
-	s := ns / 1000000000
-	ns = ns % 1000000000
-
-	return (s << 30) | ((ns << 30) / 1000000000)
-}
-
-// Cdtime converts a time.Time to collectd's internal time format.
-func Cdtime(t time.Time) uint64 {
-	return cdtimeNano(uint64(t.UnixNano()))
-}
-
-// CdtimeDuration converts a time.Duration to collectd's internal time format.
-func CdtimeDuration(d time.Duration) uint64 {
-	return cdtimeNano(uint64(d.Nanoseconds()))
-}

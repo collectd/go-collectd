@@ -9,7 +9,7 @@ import (
 )
 
 func Example_client() {
-	conn, err := Dial(net.JoinHostPort("example.com", DefaultService))
+	conn, err := Dial(net.JoinHostPort("example.com", DefaultService), ClientOptions{})
 	if err != nil {
 		log.Fatal(err)
 	}

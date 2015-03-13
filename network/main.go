@@ -38,3 +38,13 @@ const (
 	typeSignSHA256     = 0x0200
 	typeEncryptAES256  = 0x0210
 )
+
+// SecurityLevel determines whether data is signed, encrypted or used without
+// any protection.
+type SecurityLevel int
+
+const (
+	None SecurityLevel = iota
+	Sign
+	Encrypt
+)

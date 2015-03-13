@@ -6,7 +6,7 @@ import (
 )
 
 func Example_proxy() {
-	client, err := Dial(net.JoinHostPort("example.com", DefaultService))
+	client, err := Dial(net.JoinHostPort("example.com", DefaultService), ClientOptions{})
 	if err != nil {
 		log.Fatal(err)
 	}

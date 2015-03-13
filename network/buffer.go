@@ -12,7 +12,9 @@ import (
 	"collectd.org/api"
 )
 
-var errNotEnoughSpace = errors.New("not enough space")
+// ErrNotEnoughSpace is returned when adding a ValueList would exeed the buffer
+// size.
+var ErrNotEnoughSpace = errors.New("not enough space")
 
 // Buffer contains the binary representation of multiple ValueLists and state
 // optimally write the next ValueList.
@@ -23,92 +25,136 @@ type Buffer struct {
 	state              api.ValueList
 	size               int
 	username, password string
-	encrypt            bool
+	securityLevel      SecurityLevel
 }
 
-// NewBuffer initializes a new Buffer.
-func NewBuffer(w io.Writer) *Buffer {
+// NewBuffer initializes a new Buffer. If "size" is 0, DefaultBufferSize will
+// be used.
+func NewBuffer(size int) *Buffer {
+	if size <= 0 {
+		size = DefaultBufferSize
+	}
+
 	return &Buffer{
 		lock:   new(sync.Mutex),
 		buffer: new(bytes.Buffer),
-		output: w,
-		size:   DefaultBufferSize,
+		size:   size,
 	}
 }
 
-// NewBufferSigned initializes a new Buffer which is cryptographically signed.
-func NewBufferSigned(w io.Writer, username, password string) *Buffer {
-	encoded := bytes.NewBufferString(username)
-	sigSize := 36 + encoded.Len()
-
-	return &Buffer{
-		lock:     new(sync.Mutex),
-		buffer:   new(bytes.Buffer),
-		output:   w,
-		size:     DefaultBufferSize - sigSize,
-		username: username,
-		password: password,
-		encrypt:  false,
-	}
+// Sign enables cryptographic signing of data.
+func (b *Buffer) Sign(username, password string) {
+	b.username = username
+	b.password = password
+	b.securityLevel = Sign
 }
 
-// NewBufferEncrypted initializes a new Buffer which is encrypted.
-func NewBufferEncrypted(w io.Writer, username, password string) *Buffer {
-	encoded := bytes.NewBufferString(username)
-	sigSize := 42 + encoded.Len()
-
-	return &Buffer{
-		lock:     new(sync.Mutex),
-		buffer:   new(bytes.Buffer),
-		output:   w,
-		size:     DefaultBufferSize - sigSize,
-		username: username,
-		password: password,
-		encrypt:  true,
-	}
+// Sign enables encryption of data.
+func (b *Buffer) Encrypt(username, password string) {
+	b.username = username
+	b.password = password
+	b.securityLevel = Encrypt
 }
 
-// Free returns the number of bytes still available in the buffer.
-func (b *Buffer) Free() int {
-	used := b.buffer.Len()
-	if b.size < used {
+// Available returns the number of bytes still available in the buffer.
+func (b *Buffer) Available() int {
+	var overhead int
+	switch b.securityLevel {
+	case Sign:
+		overhead = 36 + len(b.username)
+	case Encrypt:
+		overhead = 42 + len(b.username)
+	}
+
+	unavail := overhead + b.buffer.Len()
+	if b.size < unavail {
 		return 0
 	}
-	return b.size - used
+	return b.size - unavail
 }
 
-// Flush writes all data currently in the buffer to the associated io.Writer.
-func (b *Buffer) Flush() error {
+// Read reads the buffer into "out". If signing or encryption is enabled, data
+// will be signed / encrypted before writing it to "out". Returns
+// ErrNotEnoughSpace if the provided buffer is too small to hold the entire
+// packet data.
+func (b *Buffer) Read(out []byte) (int, error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	return b.flush()
+	switch b.securityLevel {
+	case Sign:
+		return b.readSigned(out)
+	case Encrypt:
+		return b.readEncrypted(out)
+	}
+
+	if len(out) < b.buffer.Len() {
+		return 0, ErrNotEnoughSpace
+	}
+
+	n := copy(out, b.buffer.Bytes())
+
+	b.reset()
+	return n, nil
 }
 
-// WriteValueList adds a ValueList to the network buffer.
-func (b *Buffer) WriteValueList(vl api.ValueList) error {
+func (b *Buffer) readSigned(out []byte) (int, error) {
+	if len(out) < 36+len(b.username)+b.buffer.Len() {
+		return 0, ErrNotEnoughSpace
+	}
+
+	signed := signSHA256(b.buffer.Bytes(), b.username, b.password)
+
+	b.reset()
+	return copy(out, signed), nil
+}
+
+func (b *Buffer) readEncrypted(out []byte) (int, error) {
+	if len(out) < 42+len(b.username)+b.buffer.Len() {
+		return 0, ErrNotEnoughSpace
+	}
+
+	ciphertext, err := encryptAES256(b.buffer.Bytes(), b.username, b.password)
+	if err != nil {
+		return 0, err
+	}
+
+	b.reset()
+	return copy(out, ciphertext), nil
+}
+
+// WriteTo writes the buffer contents to "w". It implements the io.WriteTo
+// interface.
+func (b *Buffer) WriteTo(w io.Writer) (int64, error) {
+	tmp := make([]byte, b.size)
+
+	n, err := b.Read(tmp)
+	if err != nil {
+		return 0, err
+	}
+
+	n, err = w.Write(tmp[:n])
+	return int64(n), err
+}
+
+// Dispatch adds a ValueList to the buffer. Returns ErrNotEnoughSpace if not
+// enough space in the buffer is available to add this value list. In that
+// case, call Read() to empty the buffer and try again.
+func (b *Buffer) Dispatch(vl api.ValueList) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
+	// remember the original buffer size so we can truncate all potentially
+	// written data in case of an error.
 	l := b.buffer.Len()
 
 	if err := b.writeValueList(vl); err != nil {
-		// Buffer is empty; we can't flush and retry.
-		if l == 0 {
-			return err
+		if l != 0 {
+			b.buffer.Truncate(l)
 		}
-	} else {
-		return nil
-	}
-
-	// flush
-	b.buffer.Truncate(l)
-	if err := b.flush(); err != nil {
 		return err
 	}
-
-	// retry
-	return b.writeValueList(vl)
+	return nil
 }
 
 func (b *Buffer) writeValueList(vl api.ValueList) error {
@@ -186,8 +232,8 @@ func (b *Buffer) writeInterval(d time.Duration) error {
 
 func (b *Buffer) writeValues(values []api.Value) error {
 	size := 6 + 9*len(values)
-	if size > b.Free() {
-		return errNotEnoughSpace
+	if size > b.Available() {
+		return ErrNotEnoughSpace
 	}
 
 	binary.Write(b.buffer, binary.BigEndian, uint16(typeValues))
@@ -231,8 +277,8 @@ func (b *Buffer) writeString(typ uint16, s string) error {
 	// Because s is a Unicode string, encoded.Len() may be larger than
 	// len(s).
 	size := 4 + encoded.Len()
-	if size > b.Free() {
-		return errNotEnoughSpace
+	if size > b.Available() {
+		return ErrNotEnoughSpace
 	}
 
 	binary.Write(b.buffer, binary.BigEndian, typ)
@@ -244,8 +290,8 @@ func (b *Buffer) writeString(typ uint16, s string) error {
 
 func (b *Buffer) writeInt(typ uint16, n uint64) error {
 	size := 12
-	if size > b.Free() {
-		return errNotEnoughSpace
+	if size > b.Available() {
+		return ErrNotEnoughSpace
 	}
 
 	binary.Write(b.buffer, binary.BigEndian, typ)
@@ -255,6 +301,12 @@ func (b *Buffer) writeInt(typ uint16, n uint64) error {
 	return nil
 }
 
+func (b *Buffer) reset() {
+	b.buffer.Reset()
+	b.state = api.ValueList{}
+}
+
+/*
 func (b *Buffer) flush() error {
 	if b.buffer.Len() == 0 {
 		return nil
@@ -284,3 +336,4 @@ func (b *Buffer) flush() error {
 	b.state = api.ValueList{}
 	return nil
 }
+*/

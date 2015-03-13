@@ -11,8 +11,7 @@ import (
 )
 
 func TestWriteValueList(t *testing.T) {
-	gotBuf := new(bytes.Buffer)
-	b := NewBuffer(gotBuf)
+	b := NewBuffer(0)
 
 	vl := api.ValueList{
 		Identifier: api.Identifier{
@@ -25,8 +24,8 @@ func TestWriteValueList(t *testing.T) {
 		Values:   []api.Value{api.Derive(1)},
 	}
 
-	if err := b.WriteValueList(vl); err != nil {
-		t.Errorf("WriteValueList got %v, want nil", err)
+	if err := b.Dispatch(vl); err != nil {
+		t.Errorf("Dispatch got %v, want nil", err)
 		return
 	}
 
@@ -43,8 +42,8 @@ func TestWriteValueList(t *testing.T) {
 		Values:   []api.Value{api.Derive(2)},
 	}
 
-	if err := b.WriteValueList(vl); err != nil {
-		t.Errorf("WriteValueList got %v, want nil", err)
+	if err := b.Dispatch(vl); err != nil {
+		t.Errorf("Dispatch got %v, want nil", err)
 		return
 	}
 

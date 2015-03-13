@@ -18,7 +18,10 @@ var (
 	ErrorUnsupported = errors.New("Unsupported packet")
 )
 
+// ParseOpts holds confiruation options for "Parse()".
 type ParseOpts struct {
+	// PasswordLookup is used lookup passwords to verify signed data and
+	// decrypt encrypted data.
 	PasswordLookup PasswordLookup
 }
 

@@ -20,10 +20,14 @@ import (
 	"time"
 )
 
+// PasswordLookup is used when parsing signed and encrypted network traffic to
+// look up the password associated with a given username.
 type PasswordLookup interface {
 	Password(user string) (string, error)
 }
 
+// AuthFile implements the PasswordLookup interface in the same way the
+// collectd network plugin implements it, i.e. by stat'ing and reading a file.
 type AuthFile struct {
 	name string
 	last time.Time
@@ -31,6 +35,7 @@ type AuthFile struct {
 	lock *sync.Mutex
 }
 
+// NewAuthFile initializes and returns a new AuthFile.
 func NewAuthFile(name string) *AuthFile {
 	return &AuthFile{
 		name: name,
@@ -38,6 +43,7 @@ func NewAuthFile(name string) *AuthFile {
 	}
 }
 
+// Password looks up a user in the file and returns the associated password.
 func (a *AuthFile) Password(user string) (string, error) {
 	if a == nil {
 		return "", fmt.Errorf("no AuthFile")

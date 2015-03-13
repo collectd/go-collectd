@@ -7,10 +7,17 @@ import (
 	"collectd.org/api"
 )
 
+// ServerOptions holds configuration options for ListenAndDispatch.
 type ServerOptions struct {
+	// PasswordLookup is used to verify signed data and decrypt encrypted
+	// data.
 	PasswordLookup PasswordLookup
-	Interface      string
-	BufferSize     uint16
+	// Interface is the name of the interface to use when subscribing to a
+	// multicast group. Has no effect when using unicast.
+	Interface string
+	// Size of the receive buffer to use. When zero, DefaultBufferSize is
+	// used.
+	BufferSize uint16
 }
 
 // ListenAndDispatch listens on the provided UDP address, parses the received

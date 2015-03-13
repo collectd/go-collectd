@@ -12,11 +12,9 @@ import (
 	"collectd.org/cdtime"
 )
 
-// Common error conditions.
-var (
-	ErrorInvalid     = errors.New("Invalid packet")
-	ErrorUnsupported = errors.New("Unsupported packet")
-)
+// ErrInvalid is returned when parsing the network data was aborted due to
+// illegal data format.
+var ErrInvalid = errors.New("invalid data")
 
 // ParseOpts holds confiruation options for "Parse()".
 type ParseOpts struct {
@@ -131,7 +129,7 @@ func parseValues(b []byte) ([]api.Value, error) {
 	}
 
 	if int(n*9) != buffer.Len() {
-		return nil, fmt.Errorf("parseValues: length mismatch: %d vs %d", n*9, buffer.Len())
+		return nil, ErrInvalid
 	}
 
 	types := make([]byte, n)
@@ -161,7 +159,7 @@ func parseValues(b []byte) ([]api.Value, error) {
 			return nil, ErrorUnsupported
 
 		default:
-			return nil, fmt.Errorf("parseValues: invalid data source %d", typ)
+			return nil, ErrInvalid
 		}
 	}
 
@@ -170,7 +168,7 @@ func parseValues(b []byte) ([]api.Value, error) {
 
 func parseInt(b []byte) (uint64, error) {
 	if len(b) != 8 {
-		return 0, ErrorInvalid
+		return 0, ErrInvalid
 	}
 
 	var i uint64
@@ -184,7 +182,7 @@ func parseInt(b []byte) (uint64, error) {
 
 func parseString(b []byte) (string, error) {
 	if b[len(b)-1] != 0 {
-		return "", ErrorInvalid
+		return "", ErrInvalid
 	}
 
 	buf := bytes.NewBuffer(b[:len(b)-1])

@@ -50,7 +50,7 @@ func (b *Buffer) Sign(username, password string) {
 	b.securityLevel = Sign
 }
 
-// Sign enables encryption of data.
+// Encrypt enables encryption of data.
 func (b *Buffer) Encrypt(username, password string) {
 	b.username = username
 	b.password = password

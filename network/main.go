@@ -43,6 +43,7 @@ const (
 // any protection.
 type SecurityLevel int
 
+// Predefined security levels. "None" is used for plain text.
 const (
 	None SecurityLevel = iota
 	Sign

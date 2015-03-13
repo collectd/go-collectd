@@ -14,7 +14,7 @@ import (
 )
 
 // Putval is the dispatcher used by the exec package to print ValueLists.
-var Putval api.Dispatcher = format.NewPutval(os.Stdout)
+var Putval = format.NewPutval(os.Stdout)
 
 type valueCallback struct {
 	callback func() api.Value

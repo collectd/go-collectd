@@ -16,7 +16,7 @@ func New(t time.Time) Time {
 	return newNano(uint64(t.UnixNano()))
 }
 
-// New returns a new Time representing duration d.
+// NewDuration returns a new Time representing duration d.
 func NewDuration(d time.Duration) Time {
 	return newNano(uint64(d.Nanoseconds()))
 }

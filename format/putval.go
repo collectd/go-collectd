@@ -48,7 +48,7 @@ func formatValues(vl api.ValueList) (string, error) {
 		case api.Derive:
 			fields[i+1] = fmt.Sprintf("%d", v)
 		default:
-			return "", fmt.Errorf("Value has unexpected type %T", v)
+			return "", fmt.Errorf("unexpected type %T", v)
 		}
 	}
 

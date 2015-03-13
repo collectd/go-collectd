@@ -17,10 +17,9 @@ const DefaultBufferSize = 1452
 
 // Numeric data source type identifiers.
 const (
-	dsTypeCounter  = 0
-	dsTypeGauge    = 1
-	dsTypeDerive   = 2
-	dsTypeAbsolute = 3
+	dsTypeCounter = 0
+	dsTypeGauge   = 1
+	dsTypeDerive  = 2
 )
 
 // IDs of the various "parts", i.e. subcomponents of a packet.

@@ -148,15 +148,19 @@ func parseValues(b []byte) ([]api.Value, error) {
 			}
 			values[i] = api.Gauge(v)
 
-		case dsTypeDerive, dsTypeCounter:
+		case dsTypeDerive:
 			var v int64
 			if err := binary.Read(buffer, binary.BigEndian, &v); err != nil {
 				return nil, err
 			}
 			values[i] = api.Derive(v)
 
-		case dsTypeAbsolute:
-			return nil, ErrorUnsupported
+		case dsTypeCounter:
+			var v uint64
+			if err := binary.Read(buffer, binary.BigEndian, &v); err != nil {
+				return nil, err
+			}
+			values[i] = api.Counter(v)
 
 		default:
 			return nil, ErrInvalid

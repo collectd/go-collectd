@@ -68,7 +68,8 @@ func (c *Client) Flush() error {
 	return err
 }
 
-// Close closes a connection. You must not use "c" after this call.
+// Close writes remaining data to the network and closes the socket. You must
+// not use "c" after this call.
 func (c *Client) Close() error {
 	if err := c.Flush(); err != nil {
 		return err

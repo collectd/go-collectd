@@ -8,7 +8,7 @@ import (
 	"collectd.org/api"
 )
 
-func Example_client() {
+func ExampleClient() {
 	conn, err := Dial(net.JoinHostPort("example.com", DefaultService), ClientOptions{})
 	if err != nil {
 		log.Fatal(err)

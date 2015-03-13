@@ -28,6 +28,12 @@ type PasswordLookup interface {
 
 // AuthFile implements the PasswordLookup interface in the same way the
 // collectd network plugin implements it, i.e. by stat'ing and reading a file.
+//
+// The file has a very simple syntax with one username / password mapping per
+// line, separated by a colon. For example:
+//
+//   alice: w0nderl4nd
+//   bob:   bu1|der
 type AuthFile struct {
 	name string
 	last time.Time

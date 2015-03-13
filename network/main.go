@@ -1,7 +1,7 @@
 /*
 Package network implements collectd's binary network protocol.
 */
-package network
+package network // import "collectd.org/network"
 
 // Well-known addresses and port.
 const (

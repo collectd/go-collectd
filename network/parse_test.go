@@ -1,4 +1,4 @@
-package network
+package network // import "collectd.org/network"
 
 import (
 	"encoding/hex"

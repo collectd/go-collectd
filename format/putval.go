@@ -1,6 +1,6 @@
 // Package format provides utilities to format metrics and notifications in
 // various formats.
-package format
+package format // import "collectd.org/format"
 
 import (
 	"fmt"

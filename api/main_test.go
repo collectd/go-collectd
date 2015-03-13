@@ -1,4 +1,4 @@
-package api
+package api // import "collectd.org/api"
 
 import (
 	"testing"

@@ -1,6 +1,6 @@
 // Package exec implements tools to write plugins for collectd's "exec plugin"
 // in Go.
-package exec
+package exec // import "collectd.org/exec"
 
 import (
 	"log"

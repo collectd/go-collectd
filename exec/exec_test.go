@@ -1,4 +1,4 @@
-package exec
+package exec // import "collectd.org/exec"
 
 import (
 	"os"

@@ -2,7 +2,7 @@
 Package cdtime implements methods to convert from and to collectd's internal time
 representation, cdtime_t.
 */
-package cdtime
+package cdtime // import "collectd.org/cdtime"
 
 import (
 	"time"

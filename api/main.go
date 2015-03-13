@@ -1,5 +1,5 @@
 // Package api defines data types representing core collectd data types.
-package api
+package api // import "collectd.org/api"
 
 import (
 	"time"

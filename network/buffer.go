@@ -2,47 +2,15 @@ package network
 
 import (
 	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha1"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"io"
-	"log"
 	"math"
 	"sync"
 	"time"
 
 	"collectd.org/api"
 )
-
-const (
-	dsTypeGauge  = 1
-	dsTypeDerive = 2
-)
-
-const (
-	typeHost           = 0x0000
-	typeTime           = 0x0001
-	typeTimeHR         = 0x0008
-	typePlugin         = 0x0002
-	typePluginInstance = 0x0003
-	typeType           = 0x0004
-	typeTypeInstance   = 0x0005
-	typeValues         = 0x0006
-	typeInterval       = 0x0007
-	typeIntervalHR     = 0x0009
-	typeSignSHA256     = 0x0200
-	typeEncryptAES256  = 0x0210
-)
-
-// Default size of "Buffer". This is based on the maximum bytes that fit into
-// an Ethernet frame without fragmentation:
-//   <Ethernet frame> - (<IPv6 header> + <UDP header>) = 1500 - (40 + 8) = 1452
-const DefaultBufferSize = 1452
 
 var errNotEnoughSpace = errors.New("not enough space")
 
@@ -300,11 +268,11 @@ func (b *Buffer) flush() error {
 	if b.username != "" && b.password != "" {
 		if b.encrypt {
 			var err error
-			if buf, err = encrypt(buf, b.username, b.password); err != nil {
+			if buf, err = encryptAES256(buf, b.username, b.password); err != nil {
 				return err
 			}
 		} else {
-			buf = sign(buf, b.username, b.password)
+			buf = signSHA256(buf, b.username, b.password)
 		}
 	}
 
@@ -315,68 +283,4 @@ func (b *Buffer) flush() error {
 	// zero state
 	b.state = api.ValueList{}
 	return nil
-}
-
-func sign(payload []byte, username, password string) []byte {
-	mac := hmac.New(sha256.New, bytes.NewBufferString(password).Bytes())
-
-	usernameBuffer := bytes.NewBufferString(username)
-
-	size := uint16(36 + usernameBuffer.Len())
-
-	mac.Write(usernameBuffer.Bytes())
-	mac.Write(payload)
-
-	out := new(bytes.Buffer)
-	binary.Write(out, binary.BigEndian, uint16(typeSignSHA256))
-	binary.Write(out, binary.BigEndian, size)
-	out.Write(mac.Sum(nil))
-	out.Write(usernameBuffer.Bytes())
-	out.Write(payload)
-
-	return out.Bytes()
-}
-
-func createCipher(password string) (cipher.Stream, []byte, error) {
-	passwordHash := sha256.Sum256(bytes.NewBufferString(password).Bytes())
-
-	blockCipher, err := aes.NewCipher(passwordHash[:])
-	if err != nil {
-		return nil, nil, err
-	}
-
-	iv := make([]byte, 16)
-	if _, err := rand.Read(iv); err != nil {
-		log.Printf("rand.Read: %v", err)
-		return nil, nil, err
-	}
-
-	streamCipher := cipher.NewOFB(blockCipher, iv[:])
-	return streamCipher, iv, nil
-}
-
-func encrypt(plaintext []byte, username, password string) ([]byte, error) {
-	streamCipher, iv, err := createCipher(password)
-	if err != nil {
-		return nil, err
-	}
-
-	usernameBuffer := bytes.NewBufferString(username)
-
-	size := uint16(42 + usernameBuffer.Len() + len(plaintext))
-
-	checksum := sha1.Sum(plaintext)
-
-	out := new(bytes.Buffer)
-	binary.Write(out, binary.BigEndian, uint16(typeEncryptAES256))
-	binary.Write(out, binary.BigEndian, size)
-	binary.Write(out, binary.BigEndian, uint16(usernameBuffer.Len()))
-	out.Write(usernameBuffer.Bytes())
-	out.Write(iv)
-
-	w := &cipher.StreamWriter{S: streamCipher, W: out}
-	w.Write(checksum[:])
-	w.Write(plaintext)
-
-	return out.Bytes(), nil
 }

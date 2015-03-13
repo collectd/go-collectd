@@ -18,17 +18,18 @@ var (
 	ErrorUnsupported = errors.New("Unsupported packet")
 )
 
+type ParseOpts struct {
+	PasswordLookup PasswordLookup
+}
+
 // Parse parses the binary network format and returns a slice of ValueLists. If
 // a parse error is encountered, all ValueLists parsed to this point are
 // returned as well as the error. Unknown "parts" are silently ignored.
-func Parse(b []byte) ([]api.ValueList, error) {
+func Parse(b []byte, opts ParseOpts) ([]api.ValueList, error) {
 	var valueLists []api.ValueList
 
 	var state api.ValueList
 	buf := bytes.NewBuffer(b)
-
-	// FIXME
-	userToPassword := make(map[string]string)
 
 	for buf.Len() > 0 {
 		partType := binary.BigEndian.Uint16(buf.Next(2))
@@ -89,7 +90,7 @@ func Parse(b []byte) ([]api.ValueList, error) {
 			valueLists = append(valueLists, vl)
 
 		case typeSignSHA256:
-			ok, err := verifySHA256(payload, buf.Bytes(), userToPassword)
+			ok, err := verifySHA256(payload, buf.Bytes(), opts.PasswordLookup)
 			if err != nil {
 				return valueLists, err
 			} else if !ok {
@@ -97,12 +98,12 @@ func Parse(b []byte) ([]api.ValueList, error) {
 			}
 
 		case typeEncryptAES256:
-			plaintext, err := decryptAES256(payload, userToPassword)
+			plaintext, err := decryptAES256(payload, opts.PasswordLookup)
 			if err != nil {
 				log.Printf("failed to decrypt encrypted data: %v", err)
 				continue
 			}
-			vls, err := Parse(plaintext)
+			vls, err := Parse(plaintext, opts)
 			if vls != nil {
 				valueLists = append(valueLists, vls...)
 			}

@@ -7,7 +7,7 @@ import (
 
 func TestParse(t *testing.T) {
 	for i, raw := range rawPacketData {
-		vl, err := Parse(raw)
+		vl, err := Parse(raw, ParseOpts{})
 		if err != nil {
 			t.Errorf("%d: got (%v, %v), want nil", i, vl, err)
 		}
@@ -16,7 +16,7 @@ func TestParse(t *testing.T) {
 
 func BenchmarkPackets(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := Parse(rawPacketData[i%len(rawPacketData)])
+		_, err := Parse(rawPacketData[i%len(rawPacketData)], ParseOpts{})
 		if err != nil {
 			b.Error(err)
 		}

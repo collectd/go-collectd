@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
@@ -11,8 +12,99 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"os"
+	"strings"
+	"sync"
+	"time"
 )
+
+type PasswordLookup interface {
+	Password(user string) (string, error)
+}
+
+type AuthFile struct {
+	name string
+	last time.Time
+	data map[string]string
+	lock *sync.Mutex
+}
+
+func NewAuthFile(name string) *AuthFile {
+	return &AuthFile{
+		name: name,
+		lock: &sync.Mutex{},
+	}
+}
+
+func (a *AuthFile) Password(user string) (string, error) {
+	if a == nil {
+		return "", fmt.Errorf("no AuthFile")
+	}
+
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
+	if err := a.update(); err != nil {
+		return "", err
+	}
+
+	pwd, ok := a.data[user]
+	if !ok {
+		return "", fmt.Errorf("no such user: %q", user)
+	}
+
+	return pwd, nil
+}
+
+func (a *AuthFile) update() error {
+	fi, err := os.Stat(a.name)
+	if err != nil {
+		return err
+	}
+
+	if !fi.ModTime().After(a.last) {
+		// up to date
+		return nil
+	}
+
+	file, err := os.Open(a.name)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	newData := make(map[string]string)
+
+	r := bufio.NewReader(file)
+	for {
+		line, err := r.ReadString('\n')
+		if err != nil && err != io.EOF {
+			return err
+		} else if err == io.EOF {
+			break
+		}
+
+		line = strings.Trim(line, " \r\n\t\v")
+		fields := strings.SplitN(line, ":", 2)
+		if len(fields) != 2 {
+			continue
+		}
+
+		user := strings.TrimSpace(fields[0])
+		pass := strings.TrimSpace(fields[1])
+		if strings.HasPrefix(user, "#") {
+			continue
+		}
+
+		newData[user] = pass
+	}
+
+	a.data = newData
+	a.last = fi.ModTime()
+	return nil
+}
 
 func signSHA256(payload []byte, username, password string) []byte {
 	mac := hmac.New(sha256.New, bytes.NewBufferString(password).Bytes())
@@ -34,7 +126,11 @@ func signSHA256(payload []byte, username, password string) []byte {
 	return out.Bytes()
 }
 
-func verifySHA256(part, payload []byte, userToPassword map[string]string) (bool, error) {
+func verifySHA256(part, payload []byte, lookup PasswordLookup) (bool, error) {
+	if lookup == nil {
+		return false, errors.New("no PasswordLookup available")
+	}
+
 	if len(part) <= 32 {
 		return false, fmt.Errorf("part too small (%d bytes)", len(part))
 	}
@@ -42,9 +138,9 @@ func verifySHA256(part, payload []byte, userToPassword map[string]string) (bool,
 	hash := part[:32]
 	user := bytes.NewBuffer(part[32:]).String()
 
-	password, ok := userToPassword[user]
-	if !ok {
-		return false, fmt.Errorf("no such user: %q", user)
+	password, err := lookup.Password(user)
+	if err != nil {
+		return false, err
 	}
 
 	mac := hmac.New(sha256.New, bytes.NewBufferString(password).Bytes())
@@ -99,7 +195,11 @@ func encryptAES256(plaintext []byte, username, password string) ([]byte, error) 
 	return out.Bytes(), nil
 }
 
-func decryptAES256(ciphertext []byte, userToPassword map[string]string) ([]byte, error) {
+func decryptAES256(ciphertext []byte, lookup PasswordLookup) ([]byte, error) {
+	if lookup == nil {
+		return nil, errors.New("no PasswordLookup available")
+	}
+
 	buf := bytes.NewBuffer(ciphertext)
 	userLen := int(binary.BigEndian.Uint16(buf.Next(2)))
 	if 42+userLen >= buf.Len() {
@@ -107,9 +207,9 @@ func decryptAES256(ciphertext []byte, userToPassword map[string]string) ([]byte,
 	}
 	user := bytes.NewBuffer(buf.Next(userLen)).String()
 
-	password, ok := userToPassword[user]
-	if !ok {
-		return nil, fmt.Errorf("no such user: %q", user)
+	password, err := lookup.Password(user)
+	if err != nil {
+		return nil, err
 	}
 
 	iv := make([]byte, 16)

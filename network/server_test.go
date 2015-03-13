@@ -12,8 +12,13 @@ func Example_proxy() {
 	}
 	defer client.Close()
 
+	sopts := ServerOptions{
+		PasswordLookup: NewAuthFile("/path/to/file"),
+		BufferSize:     1500,
+	}
+
 	// blocks
-	err = ListenAndDispatch(net.JoinHostPort("::", DefaultService), client)
+	err = ListenAndDispatch(net.JoinHostPort("::", DefaultService), client, sopts)
 	if err != nil {
 		log.Fatal(err)
 	}

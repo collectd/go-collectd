@@ -2,9 +2,21 @@ package network
 
 import (
 	"bytes"
+	"errors"
 	"reflect"
 	"testing"
 )
+
+type mockPasswordLookup map[string]string
+
+func (l mockPasswordLookup) Password(user string) (string, error) {
+	pass, ok := l[user]
+	if !ok {
+		return "", errors.New("not found")
+	}
+
+	return pass, nil
+}
 
 func TestSign(t *testing.T) {
 	want := []byte{
@@ -22,23 +34,23 @@ func TestSign(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	userToPassword := map[string]string{
+	passwords := mockPasswordLookup{
 		"admin": "admin",
 	}
-	ok, err := verifySHA256(want[4:41], want[41:], userToPassword)
+	ok, err := verifySHA256(want[4:41], want[41:], passwords)
 	if !ok || err != nil {
 		t.Errorf("got (%v, %v), want (true, nil)", ok, err)
 	}
 
 	want[41], want[42] = want[42], want[41] // corrupt data
-	ok, err = verifySHA256(want[4:41], want[41:], userToPassword)
+	ok, err = verifySHA256(want[4:41], want[41:], passwords)
 	if ok || err != nil {
 		t.Errorf("got (%v, %v), want (false, nil)", ok, err)
 	}
 
 	want[41], want[42] = want[42], want[41] // fix data
-	userToPassword["admin"] = "test123"     // different password
-	ok, err = verifySHA256(want[4:41], want[41:], userToPassword)
+	passwords["admin"] = "test123"          // different password
+	ok, err = verifySHA256(want[4:41], want[41:], passwords)
 	if ok || err != nil {
 		t.Errorf("got (%v, %v), want (false, nil)", ok, err)
 	}
@@ -62,21 +74,21 @@ func TestEncrypt(t *testing.T) {
 		t.Errorf("got (%v, %v), want (%v, nil)", ciphertext[:11], err, want)
 	}
 
-	userToPassword := map[string]string{
+	passwords := mockPasswordLookup{
 		"admin": "admin",
 	}
-	if got, err := decryptAES256(ciphertext[4:], userToPassword); !bytes.Equal(got, plaintext) || err != nil {
+	if got, err := decryptAES256(ciphertext[4:], passwords); !bytes.Equal(got, plaintext) || err != nil {
 		t.Errorf("got (%v, %v), want (%v, nil)", got, err, plaintext)
 	}
 
 	ciphertext[47], ciphertext[48] = ciphertext[48], ciphertext[47] // corrupt data
-	if got, err := decryptAES256(ciphertext[4:], userToPassword); got != nil || err == nil {
+	if got, err := decryptAES256(ciphertext[4:], passwords); got != nil || err == nil {
 		t.Errorf("got (%v, %v), want (nil, \"checksum mismatch\")", got, err)
 	}
 
 	ciphertext[47], ciphertext[48] = ciphertext[48], ciphertext[47] // fix data
-	userToPassword["admin"] = "test123"                             // different password
-	if got, err := decryptAES256(ciphertext[4:], userToPassword); got != nil || err == nil {
+	passwords["admin"] = "test123"                                  // different password
+	if got, err := decryptAES256(ciphertext[4:], passwords); got != nil || err == nil {
 		t.Errorf("got (%v, %v), want (nil, \"no such user\")", got, err)
 	}
 }

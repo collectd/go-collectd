@@ -28,7 +28,7 @@ func (t Time) Time() time.Time {
 	return time.Unix(s, ns)
 }
 
-// Duration converts and returns the duration as time.Time.
+// Duration converts and returns the duration as time.Duration.
 func (t Time) Duration() time.Duration {
 	s, ns := t.decompose()
 	return time.Duration(1000000000*s+ns) * time.Nanosecond

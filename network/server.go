@@ -7,23 +7,39 @@ import (
 	"collectd.org/api"
 )
 
-// ServerOptions holds configuration options for ListenAndDispatch.
-type ServerOptions struct {
-	// PasswordLookup is used to verify signed data and decrypt encrypted
-	// data.
-	PasswordLookup PasswordLookup
+// ListenAndDispatch listens on the provided UDP address, parses the received
+// packets and dispatches them to the provided dispatcher.
+// This is a convenience function for a minimally configured server. If you
+// need more control, see the "Server" type below.
+func ListenAndDispatch(address string, d api.Dispatcher) error {
+	srv := &Server{
+		Addr:       address,
+		Dispatcher: d,
+	}
+
+	return srv.ListenAndDispatch()
+}
+
+// Server holds parameters for running a collectd server.
+type Server struct {
+	Addr           string         // UDP address to listen on.
+	Dispatcher     api.Dispatcher // Object used to send incoming ValueLists to.
+	BufferSize     uint16         // Maximum packet size to accept.
+	PasswordLookup PasswordLookup // User to password lookup.
 	// Interface is the name of the interface to use when subscribing to a
 	// multicast group. Has no effect when using unicast.
 	Interface string
-	// Size of the receive buffer to use. When zero, DefaultBufferSize is
-	// used.
-	BufferSize uint16
 }
 
 // ListenAndDispatch listens on the provided UDP address, parses the received
 // packets and dispatches them to the provided dispatcher.
-func ListenAndDispatch(address string, d api.Dispatcher, opts ServerOptions) error {
-	laddr, err := net.ResolveUDPAddr("udp", address)
+func (srv *Server) ListenAndDispatch() error {
+	addr := srv.Addr
+	if addr == "" {
+		addr = ":" + DefaultService
+	}
+
+	laddr, err := net.ResolveUDPAddr("udp", srv.Addr)
 	if err != nil {
 		return err
 	}
@@ -31,8 +47,8 @@ func ListenAndDispatch(address string, d api.Dispatcher, opts ServerOptions) err
 	var sock *net.UDPConn
 	if laddr.IP.IsMulticast() {
 		var ifi *net.Interface
-		if opts.Interface != "" {
-			if ifi, err = net.InterfaceByName(opts.Interface); err != nil {
+		if srv.Interface != "" {
+			if ifi, err = net.InterfaceByName(srv.Interface); err != nil {
 				return err
 			}
 		}
@@ -45,13 +61,13 @@ func ListenAndDispatch(address string, d api.Dispatcher, opts ServerOptions) err
 	}
 	defer sock.Close()
 
-	if opts.BufferSize <= 0 {
-		opts.BufferSize = DefaultBufferSize
+	if srv.BufferSize <= 0 {
+		srv.BufferSize = DefaultBufferSize
 	}
-	buf := make([]byte, opts.BufferSize)
+	buf := make([]byte, srv.BufferSize)
 
 	popts := ParseOpts{
-		PasswordLookup: opts.PasswordLookup,
+		PasswordLookup: srv.PasswordLookup,
 	}
 
 	for {
@@ -66,7 +82,7 @@ func ListenAndDispatch(address string, d api.Dispatcher, opts ServerOptions) err
 			continue
 		}
 
-		go dispatch(valueLists, d)
+		go dispatch(valueLists, srv.Dispatcher)
 	}
 }
 

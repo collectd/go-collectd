@@ -57,6 +57,12 @@ func (vl ValueList) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements the "encoding/json".Unmarshaler interface for
 // ValueList.
+//
+// Please note that this function is currently not compatible with write_http's
+// "StoreRates" setting: if enabled, write_http converts derives and counters
+// to a rate (a floating point number), but still puts "derive" or "counter" in
+// the "dstypes" array. UnmarshalJSON will try to parse such values as
+// integers, which will fail in many cases.
 func (vl *ValueList) UnmarshalJSON(data []byte) error {
 	var jvl jsonValueList
 

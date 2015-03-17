@@ -8,17 +8,25 @@ import (
 // Value represents either a Gauge or a Derive. It is Go's equivalent to the C
 // union value_t. If a function accepts a Value, you may pass in either a Gauge
 // or a Derive. Passing in any other type may or may not panic.
-type Value interface{}
+type Value interface {
+	Type() string
+}
 
 // Gauge represents a gauge metric value, such as a temperature.
 // This is Go's equivalent to the C type "gauge_t".
 type Gauge float64
+
+// Type returns "gauge".
+func (v Gauge) Type() string { return "gauge" }
 
 // Derive represents a counter metric value, such as bytes sent over the
 // network. When the counter wraps around (overflows) or is reset, this is
 // interpreted as a (huge) negative rate, which is discarded.
 // This is Go's equivalent to the C type "derive_t".
 type Derive int64
+
+// Type returns "derive".
+func (v Derive) Type() string { return "derive" }
 
 // Counter represents a counter metric value, such as bytes sent over the
 // network. When a counter value is smaller than the previous value, a wrap
@@ -27,6 +35,9 @@ type Derive int64
 // instead.
 // This is Go's equivalent to the C type "counter_t".
 type Counter uint64
+
+// Type returns "counter".
+func (v Counter) Type() string { return "counter" }
 
 // Identifier identifies one metric.
 type Identifier struct {

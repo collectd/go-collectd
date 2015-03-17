@@ -45,7 +45,15 @@ The reposiroty is organized as follows:
   to add parsers for some formats, such as the JSON export.
 * Package `collectd.org/network` implements collectd's
   [binary network protocol](https://collectd.org/wiki/index.php/Binary_protocol).
-  Currently, only a client implementation is available.
+  It offers client and server implementations, see `network.Client` and
+  `network.ListenAndDispatch()` for more detials.
+
+# Install
+
+To use this package in your own programs, simply use `go get` to fetch the
+packages you need, for example:
+
+    go get collectd.org/api
 
 # Author
 

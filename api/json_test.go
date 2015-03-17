@@ -1,9 +1,15 @@
 package api
 
 import (
+	"encoding/json"
+	"io/ioutil"
+	"log"
+	"net/http"
 	"reflect"
 	"testing"
 	"time"
+
+	"collectd.org/exec"
 )
 
 func TestValueList(t *testing.T) {
@@ -36,4 +42,30 @@ func TestValueList(t *testing.T) {
 	if !reflect.DeepEqual(vlWant, vlGot) {
 		t.Errorf("got %#v, want %#v)", vlGot, vlWant)
 	}
+}
+
+func ExampleValueList_UnmarshalJSON() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		data, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Printf("while reading body: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var vls []api.ValueList
+		if err := json.Unmarshal(data, &vls); err != nil {
+			log.Printf("while parsing JSON: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		for _, vl := range vls {
+			exec.Putval.Dispatch(vl)
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }

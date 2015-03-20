@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"testing"
 	"time"
-
-	"collectd.org/exec"
 )
 
 func TestValueList(t *testing.T) {
@@ -53,7 +51,7 @@ func ExampleValueList_UnmarshalJSON() {
 			return
 		}
 
-		var vls []api.ValueList
+		var vls []ValueList
 		if err := json.Unmarshal(data, &vls); err != nil {
 			log.Printf("while parsing JSON: %v", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -61,7 +59,11 @@ func ExampleValueList_UnmarshalJSON() {
 		}
 
 		for _, vl := range vls {
-			exec.Putval.Write(vl)
+			var w Writer
+			w.Write(vl)
+			// "w" is a placeholder to avoid cyclic dependencies.
+			// In real live, you'd do something like this here:
+			// exec.Putval.Write(vl)
 		}
 
 		w.WriteHeader(http.StatusNoContent)

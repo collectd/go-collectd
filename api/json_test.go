@@ -61,7 +61,7 @@ func ExampleValueList_UnmarshalJSON() {
 		}
 
 		for _, vl := range vls {
-			exec.Putval.Dispatch(vl)
+			exec.Putval.Write(vl)
 		}
 
 		w.WriteHeader(http.StatusNoContent)

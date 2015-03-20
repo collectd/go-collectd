@@ -18,7 +18,7 @@ type ClientOptions struct {
 }
 
 // Client is a connection to a collectd server. It implements the
-// api.Dispatcher interface.
+// api.Writer interface.
 type Client struct {
 	udp    net.Conn
 	buffer *Buffer
@@ -47,10 +47,10 @@ func Dial(address string, opts ClientOptions) (*Client, error) {
 	}, nil
 }
 
-// Dispatch adds a ValueList to the internal buffer. Data is only written to
+// Write adds a ValueList to the internal buffer. Data is only written to
 // the network when the buffer is full.
-func (c *Client) Dispatch(vl api.ValueList) error {
-	if err := c.buffer.Dispatch(vl); err != ErrNotEnoughSpace {
+func (c *Client) Write(vl api.ValueList) error {
+	if err := c.buffer.Write(vl); err != ErrNotEnoughSpace {
 		return err
 	}
 
@@ -58,7 +58,7 @@ func (c *Client) Dispatch(vl api.ValueList) error {
 		return err
 	}
 
-	return c.buffer.Dispatch(vl)
+	return c.buffer.Write(vl)
 }
 
 // Flush writes the contents of the underlying buffer to the network

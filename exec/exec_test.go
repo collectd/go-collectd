@@ -77,7 +77,7 @@ func Example() {
 		for _, d := range data {
 			vl.Values[0] = d.Value
 			vl.Identifier.TypeInstance = d.TypeInstance
-			Putval.Dispatch(vl)
+			Putval.Write(vl)
 		}
 	}
 	e.VoidCallback(bicycles, time.Second)

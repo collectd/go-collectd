@@ -10,20 +10,20 @@ import (
 
 // This example demonstrates how to listen to encrypted network traffic and
 // dump it to STDOUT using format.Putval.
-func ExampleServer_ListenAndDispatch() {
+func ExampleServer_ListenAndWrite() {
 	srv := &Server{
 		Addr:           net.JoinHostPort("::", DefaultService),
-		Dispatcher:     format.NewPutval(os.Stdout),
+		Writer:     format.NewPutval(os.Stdout),
 		PasswordLookup: NewAuthFile("/etc/collectd/users"),
 	}
 
 	// blocks
-	log.Fatal(srv.ListenAndDispatch())
+	log.Fatal(srv.ListenAndWrite())
 }
 
 // This example demonstrates how to forward received IPv6 multicast traffic to
 // a unicast address, using PSK encryption.
-func ExampleListenAndDispatch() {
+func ExampleListenAndWrite() {
 	opts := ClientOptions{
 		SecurityLevel: Encrypt,
 		Username:      "collectd",
@@ -36,5 +36,5 @@ func ExampleListenAndDispatch() {
 	defer client.Close()
 
 	// blocks
-	log.Fatal(ListenAndDispatch(":"+DefaultService, client))
+	log.Fatal(ListenAndWrite(":"+DefaultService, client))
 }

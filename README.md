@@ -24,7 +24,7 @@ Utilities for using [collectd](https://collectd.org/) together with [Go](http://
             Interval: exec.Interval(),
             Values:   []api.Value{api.Gauge(42)},
         }
-        exec.Putval.Dispatch(vl)
+        exec.Putval.Write(vl)
     }
 
 # Description
@@ -46,7 +46,7 @@ The reposiroty is organized as follows:
 * Package `collectd.org/network` implements collectd's
   [binary network protocol](https://collectd.org/wiki/index.php/Binary_protocol).
   It offers client and server implementations, see `network.Client` and
-  `network.ListenAndDispatch()` for more detials.
+  `network.ListenAndWrite()` for more detials.
 
 # Install
 

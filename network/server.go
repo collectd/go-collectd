@@ -7,23 +7,23 @@ import (
 	"collectd.org/api"
 )
 
-// ListenAndDispatch listens on the provided UDP address, parses the received
-// packets and dispatches them to the provided dispatcher.
+// ListenAndWrite listens on the provided UDP address, parses the received
+// packets and writes them to the provided api.Writer.
 // This is a convenience function for a minimally configured server. If you
 // need more control, see the "Server" type below.
-func ListenAndDispatch(address string, d api.Dispatcher) error {
+func ListenAndWrite(address string, d api.Writer) error {
 	srv := &Server{
-		Addr:       address,
-		Dispatcher: d,
+		Addr:   address,
+		Writer: d,
 	}
 
-	return srv.ListenAndDispatch()
+	return srv.ListenAndWrite()
 }
 
 // Server holds parameters for running a collectd server.
 type Server struct {
 	Addr           string         // UDP address to listen on.
-	Dispatcher     api.Dispatcher // Object used to send incoming ValueLists to.
+	Writer         api.Writer     // Object used to send incoming ValueLists to.
 	BufferSize     uint16         // Maximum packet size to accept.
 	PasswordLookup PasswordLookup // User to password lookup.
 	// Interface is the name of the interface to use when subscribing to a
@@ -31,9 +31,9 @@ type Server struct {
 	Interface string
 }
 
-// ListenAndDispatch listens on the provided UDP address, parses the received
-// packets and dispatches them to the provided dispatcher.
-func (srv *Server) ListenAndDispatch() error {
+// ListenAndWrite listens on the provided UDP address, parses the received
+// packets and writes them to the provided api.Writer.
+func (srv *Server) ListenAndWrite() error {
 	addr := srv.Addr
 	if addr == "" {
 		addr = ":" + DefaultService
@@ -82,13 +82,13 @@ func (srv *Server) ListenAndDispatch() error {
 			continue
 		}
 
-		go dispatch(valueLists, srv.Dispatcher)
+		go dispatch(valueLists, srv.Writer)
 	}
 }
 
-func dispatch(valueLists []api.ValueList, d api.Dispatcher) {
+func dispatch(valueLists []api.ValueList, d api.Writer) {
 	for _, vl := range valueLists {
-		if err := d.Dispatch(vl); err != nil {
+		if err := d.Write(vl); err != nil {
 			log.Printf("error while dispatching: %v", err)
 		}
 	}

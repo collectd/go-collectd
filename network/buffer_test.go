@@ -24,8 +24,8 @@ func TestWriteValueList(t *testing.T) {
 		Values:   []api.Value{api.Derive(1)},
 	}
 
-	if err := b.Dispatch(vl); err != nil {
-		t.Errorf("Dispatch got %v, want nil", err)
+	if err := b.Write(vl); err != nil {
+		t.Errorf("Write got %v, want nil", err)
 		return
 	}
 
@@ -42,8 +42,8 @@ func TestWriteValueList(t *testing.T) {
 		Values:   []api.Value{api.Derive(2)},
 	}
 
-	if err := b.Dispatch(vl); err != nil {
-		t.Errorf("Dispatch got %v, want nil", err)
+	if err := b.Write(vl); err != nil {
+		t.Errorf("Write got %v, want nil", err)
 		return
 	}
 

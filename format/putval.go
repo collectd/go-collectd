@@ -11,7 +11,7 @@ import (
 	"collectd.org/api"
 )
 
-// Putval implements the Dispatcher interface for PUTVAL formatted output.
+// Putval implements the Writer interface for PUTVAL formatted output.
 type Putval struct {
 	w io.Writer
 }
@@ -23,9 +23,9 @@ func NewPutval(w io.Writer) *Putval {
 	}
 }
 
-// Dispatch formats the ValueList in the PUTVAL format and writes it to the
+// Write formats the ValueList in the PUTVAL format and writes it to the
 // assiciated io.Writer.
-func (p *Putval) Dispatch(vl api.ValueList) error {
+func (p *Putval) Write(vl api.ValueList) error {
 	s, err := formatValues(vl)
 	if err != nil {
 		return err

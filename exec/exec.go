@@ -102,7 +102,7 @@ func (cb valueCallback) run(g *sync.WaitGroup) {
 		case _ = <-ticker.C:
 			cb.vl.Values[0] = cb.callback()
 			cb.vl.Time = time.Now()
-			Putval.Dispatch(cb.vl)
+			Putval.Write(cb.vl)
 		case _ = <-cb.done:
 			g.Done()
 			return

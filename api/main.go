@@ -2,6 +2,7 @@
 package api // import "collectd.org/api"
 
 import (
+	"log"
 	"time"
 )
 
@@ -72,4 +73,38 @@ func (id Identifier) String() string {
 		str += "-" + id.TypeInstance
 	}
 	return str
+}
+
+// Dispatcher implements a multiplexer for Writer, i.e. each ValueList
+// written to it is copied and written to each registered Writer.
+type Dispatcher struct {
+	writers []Writer
+}
+
+// Add adds a Writer to the Dispatcher.
+func (d *Dispatcher) Add(w Writer) {
+	d.writers = append(d.writers, w)
+}
+
+// Len returns the number of Writers belonging to the Dispatcher.
+func (d *Dispatcher) Len() int {
+	return len(d.writers)
+}
+
+// Write starts a new Goroutine for each Writer which creates a copy of the
+// ValueList and then calls the Writer with the copy. It returns nil
+// immediately.
+func (d *Dispatcher) Write(vl ValueList) error {
+	for _, w := range d.writers {
+		go func() {
+			vlCopy := vl
+			vlCopy.Values = make([]Value, len(vl.Values))
+			copy(vlCopy.Values, vl.Values)
+
+			if err := w.Write(vlCopy); err != nil {
+				log.Printf("%T.Write(): %v", w, err)
+			}
+		}()
+	}
+	return nil
 }

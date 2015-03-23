@@ -13,7 +13,7 @@ import (
 func ExampleServer_ListenAndWrite() {
 	srv := &Server{
 		Addr:           net.JoinHostPort("::", DefaultService),
-		Writer:     format.NewPutval(os.Stdout),
+		Writer:         format.NewPutval(os.Stdout),
 		PasswordLookup: NewAuthFile("/etc/collectd/users"),
 	}
 

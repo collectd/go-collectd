@@ -40,7 +40,9 @@ func (vl ValueList) MarshalJSON() ([]byte, error) {
 		switch v := v.(type) {
 		case Gauge:
 			jvl.Values[i] = json.Number(fmt.Sprintf("%g", v))
-		case Derive, Counter:
+		case Derive:
+			jvl.Values[i] = json.Number(fmt.Sprintf("%d", v))
+		case Counter:
 			jvl.Values[i] = json.Number(fmt.Sprintf("%d", v))
 		default:
 			return nil, fmt.Errorf("unexpected data source type: %T", v)

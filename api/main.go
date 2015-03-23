@@ -96,7 +96,7 @@ func (d *Dispatcher) Len() int {
 // immediately.
 func (d *Dispatcher) Write(vl ValueList) error {
 	for _, w := range d.writers {
-		go func() {
+		go func(w Writer) {
 			vlCopy := vl
 			vlCopy.Values = make([]Value, len(vl.Values))
 			copy(vlCopy.Values, vl.Values)
@@ -104,7 +104,7 @@ func (d *Dispatcher) Write(vl ValueList) error {
 			if err := w.Write(vlCopy); err != nil {
 				log.Printf("%T.Write(): %v", w, err)
 			}
-		}()
+		}(w)
 	}
 	return nil
 }

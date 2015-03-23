@@ -21,12 +21,20 @@ type ParseOpts struct {
 	// PasswordLookup is used lookup passwords to verify signed data and
 	// decrypt encrypted data.
 	PasswordLookup PasswordLookup
+	// SecurityLevel determines the minimum security level expected by the
+	// caller. If set to "Sign", only signed and encrypted data is returned
+	// by Parse(), if set to "Encrypt", only encrypted data is returned.
+	SecurityLevel SecurityLevel
 }
 
 // Parse parses the binary network format and returns a slice of ValueLists. If
 // a parse error is encountered, all ValueLists parsed to this point are
 // returned as well as the error. Unknown "parts" are silently ignored.
 func Parse(b []byte, opts ParseOpts) ([]api.ValueList, error) {
+	return parse(b, None, opts)
+}
+
+func parse(b []byte, sl SecurityLevel, opts ParseOpts) ([]api.ValueList, error) {
 	var valueLists []api.ValueList
 
 	var state api.ValueList
@@ -50,67 +58,38 @@ func Parse(b []byte, opts ParseOpts) ([]api.ValueList, error) {
 
 		switch partType {
 		case typeHost, typePlugin, typePluginInstance, typeType, typeTypeInstance:
-			str, err := parseString(payload)
-			if err != nil {
+			if err := parseIdentifier(partType, payload, &state); err != nil {
 				return valueLists, err
 			}
-			switch partType {
-			case typeHost:
-				state.Identifier.Host = str
-			case typePlugin:
-				state.Identifier.Plugin = str
-			case typePluginInstance:
-				state.Identifier.PluginInstance = str
-			case typeType:
-				state.Identifier.Type = str
-			case typeTypeInstance:
-				state.Identifier.TypeInstance = str
-			}
+
 		case typeInterval, typeIntervalHR, typeTime, typeTimeHR:
-			i, err := parseInt(payload)
-			if err != nil {
+			if err := parseTime(partType, payload, &state); err != nil {
 				return valueLists, err
 			}
-			switch partType {
-			case typeInterval:
-				state.Interval = time.Duration(i) * time.Second
-			case typeIntervalHR:
-				state.Interval = cdtime.Time(i).Duration()
-			case typeTime:
-				state.Time = time.Unix(int64(i), 0)
-			case typeTimeHR:
-				state.Time = cdtime.Time(i).Time()
-			}
+
 		case typeValues:
 			vl := state
 			var err error
 			if vl.Values, err = parseValues(payload); err != nil {
 				return valueLists, err
 			}
-
-			valueLists = append(valueLists, vl)
+			if opts.SecurityLevel <= sl {
+				valueLists = append(valueLists, vl)
+			}
 
 		case typeSignSHA256:
-			ok, err := verifySHA256(payload, buf.Bytes(), opts.PasswordLookup)
+			vls, err := parseSignSHA256(payload, buf.Bytes(), opts)
 			if err != nil {
 				return valueLists, err
-			} else if !ok {
-				return valueLists, errors.New("SHA256 signature failed verification")
 			}
+			valueLists = append(valueLists, vls...)
 
 		case typeEncryptAES256:
-			plaintext, err := decryptAES256(payload, opts.PasswordLookup)
-			if err != nil {
-				log.Printf("failed to decrypt encrypted data: %v", err)
-				continue
-			}
-			vls, err := Parse(plaintext, opts)
-			if vls != nil {
-				valueLists = append(valueLists, vls...)
-			}
+			vls, err := parseEncryptAES256(payload, opts)
 			if err != nil {
 				return valueLists, err
 			}
+			valueLists = append(valueLists, vls...)
 
 		default:
 			log.Printf("ignoring field of type %#x", partType)
@@ -118,6 +97,48 @@ func Parse(b []byte, opts ParseOpts) ([]api.ValueList, error) {
 	}
 
 	return valueLists, nil
+}
+
+func parseIdentifier(partType uint16, payload []byte, state *api.ValueList) error {
+	str, err := parseString(payload)
+	if err != nil {
+		return err
+	}
+
+	switch partType {
+	case typeHost:
+		state.Identifier.Host = str
+	case typePlugin:
+		state.Identifier.Plugin = str
+	case typePluginInstance:
+		state.Identifier.PluginInstance = str
+	case typeType:
+		state.Identifier.Type = str
+	case typeTypeInstance:
+		state.Identifier.TypeInstance = str
+	}
+
+	return nil
+}
+
+func parseTime(partType uint16, payload []byte, state *api.ValueList) error {
+	v, err := parseInt(payload)
+	if err != nil {
+		return err
+	}
+
+	switch partType {
+	case typeInterval:
+		state.Interval = time.Duration(v) * time.Second
+	case typeIntervalHR:
+		state.Interval = cdtime.Time(v).Duration()
+	case typeTime:
+		state.Time = time.Unix(int64(v), 0)
+	case typeTimeHR:
+		state.Time = cdtime.Time(v).Time()
+	}
+
+	return nil
 }
 
 func parseValues(b []byte) ([]api.Value, error) {
@@ -168,6 +189,26 @@ func parseValues(b []byte) ([]api.Value, error) {
 	}
 
 	return values, nil
+}
+
+func parseSignSHA256(pkg, payload []byte, opts ParseOpts) ([]api.ValueList, error) {
+	ok, err := verifySHA256(pkg, payload, opts.PasswordLookup)
+	if err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, errors.New("SHA256 verification failure")
+	}
+
+	return parse(payload, Sign, opts)
+}
+
+func parseEncryptAES256(payload []byte, opts ParseOpts) ([]api.ValueList, error) {
+	plaintext, err := decryptAES256(payload, opts.PasswordLookup)
+	if err != nil {
+		return nil, errors.New("AES256 decryption failure")
+	}
+
+	return parse(plaintext, Encrypt, opts)
 }
 
 func parseInt(b []byte) (uint64, error) {

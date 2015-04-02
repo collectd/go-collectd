@@ -42,6 +42,7 @@ package export
 
 import (
 	"expvar"
+	"log"
 	"math"
 	"strconv"
 	"sync"
@@ -117,6 +118,18 @@ func NewDerive(id api.Identifier) *Derive {
 	return d
 }
 
+// NewDeriveString parses s as an Identifier and returns a new Derive. If
+// parsing s fails, it will panic. This simplifies initializing global
+// variables.
+func NewDeriveString(s string) *Derive {
+	id, err := api.ParseIdentifier(s)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return NewDerive(id)
+}
+
 // Add adds diff to d.
 func (d *Derive) Add(diff int) {
 	d.mu.Lock()
@@ -161,6 +174,17 @@ func NewGauge(id api.Identifier) *Gauge {
 	Publish(g)
 	expvar.Publish(id.String(), g)
 	return g
+}
+
+// NewGaugeString parses s as an Identifier and returns a new Gauge. If parsing
+// s fails, it will panic. This simplifies initializing global variables.
+func NewGaugeString(s string) *Gauge {
+	id, err := api.ParseIdentifier(s)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return NewGauge(id)
 }
 
 // Set sets g to v.

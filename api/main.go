@@ -2,7 +2,9 @@
 package api // import "collectd.org/api"
 
 import (
+	"fmt"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -45,6 +47,31 @@ type Identifier struct {
 	Host                   string
 	Plugin, PluginInstance string
 	Type, TypeInstance     string
+}
+
+func ParseIdentifier(s string) (Identifier, error) {
+	fields := strings.Split(s, "/")
+	if len(fields) != 3 {
+		return Identifier{}, fmt.Errorf("not a valid identifier: %q", s)
+	}
+
+	id := Identifier{
+		Host:   fields[0],
+		Plugin: fields[1],
+		Type:   fields[2],
+	}
+
+	if i := strings.Index(id.Plugin, "-"); i != -1 {
+		id.PluginInstance = id.Plugin[i+1:]
+		id.Plugin = id.Plugin[:i]
+	}
+
+	if i := strings.Index(id.Type, "-"); i != -1 {
+		id.TypeInstance = id.Type[i+1:]
+		id.Type = id.Type[:i]
+	}
+
+	return id, nil
 }
 
 // ValueList represents one (set of) data point(s) of one metric. It is Go's

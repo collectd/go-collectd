@@ -19,13 +19,15 @@ Gauge.
 
   // Call Run() in its own goroutine.
   func main() {
-          client, err := network.Dial(network.DefaultIPv6Address, network.ClientOptions{})
+          client, err := network.Dial(
+                  net.JoinHostPort(network.DefaultIPv6Address, network.DefaultService),
+                  network.ClientOptions{})
           if err !=  nil {
-	          log.Fatal(err)
-	  }
+                  log.Fatal(err)
+                  }
           go export.Run(client, export.Options{
                   Interval: 10 * time.Second,
-	  })
+          })
           // …
   }
 

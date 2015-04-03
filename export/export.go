@@ -1,24 +1,21 @@
 /*
 Package export provides an interface to instrument Go code.
 
-This package is very similar to the "expvar" package in the vanilla Go
-distribution. In fact, the variables exported with this package are also
-registered with the "expvar" package, so that you can also use other existing
-metric collection frameworks with it. This package differs in that it has an
-explicitly cumulative type, Derive.
+Instrumenting Go code with this package is very similar to the "expvar" package
+in the vanilla Go distribution. In fact, the variables exported with this
+package are also registered with the "expvar" package, so that you can also use
+other existing metric collection frameworks with it. This package differs in
+that it has an explicitly cumulative type, Derive.
 
 The intended usage pattern of this package is as follows: First, global
-variables are initialized with NewDerive() and NewGauge(). The Run() function
-is called as a separate goroutine as part of your program's initialization and,
-last but not least, the variables are updated with their respective update
-functions, Add() for Derive and Set() for Gauge.
+variables are initialized with NewDerive(), NewGauge(), NewDeriveString() or
+NewGaugeString(). The Run() function is called as a separate goroutine as part
+of your program's initialization and, last but not least, the variables are
+updated with their respective update functions, Add() for Derive and Set() for
+Gauge.
 
   // Initialize global variable.
-  var requestCounter = export.NewDerive(api.Identifier{
-          Host:   "example.com",
-          Plugin: "golang",
-          Type:   "total_requests",
-  })
+  var requestCounter = export.NewDeriveString("example.com/golang/total_requests")
 
   // Call Run() in its own goroutine.
   func main() {

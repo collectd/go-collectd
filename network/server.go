@@ -26,6 +26,7 @@ type Server struct {
 	Writer         api.Writer     // Object used to send incoming ValueLists to.
 	BufferSize     uint16         // Maximum packet size to accept.
 	PasswordLookup PasswordLookup // User to password lookup.
+	SecurityLevel  SecurityLevel  // Minimal required security level
 	// Interface is the name of the interface to use when subscribing to a
 	// multicast group. Has no effect when using unicast.
 	Interface string
@@ -68,6 +69,7 @@ func (srv *Server) ListenAndWrite() error {
 
 	popts := ParseOpts{
 		PasswordLookup: srv.PasswordLookup,
+		SecurityLevel:  srv.SecurityLevel,
 	}
 
 	for {

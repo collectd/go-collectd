@@ -37,7 +37,7 @@ Gauge.
           // …
   }
 */
-package export
+package export // import "collectd.org/export"
 
 import (
 	"expvar"

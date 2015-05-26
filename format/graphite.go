@@ -66,7 +66,7 @@ func (g *Graphite) formatName(id api.Identifier, dsName string) string {
 func (g *Graphite) formatValue(v api.Value) (string, error) {
 	switch v := v.(type) {
 	case api.Gauge:
-		return fmt.Sprintf("%g", v), nil
+		return fmt.Sprintf("%.15g", v), nil
 	case api.Derive, api.Counter:
 		return fmt.Sprintf("%d", v), nil
 	default:

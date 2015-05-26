@@ -39,7 +39,7 @@ func (vl ValueList) MarshalJSON() ([]byte, error) {
 	for i, v := range vl.Values {
 		switch v := v.(type) {
 		case Gauge:
-			jvl.Values[i] = json.Number(fmt.Sprintf("%g", v))
+			jvl.Values[i] = json.Number(fmt.Sprintf("%.15g", v))
 		case Derive:
 			jvl.Values[i] = json.Number(fmt.Sprintf("%d", v))
 		case Counter:

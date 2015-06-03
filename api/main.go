@@ -49,6 +49,7 @@ type Identifier struct {
 	Type, TypeInstance     string
 }
 
+// ParseIdentifier parses the identifier encoded in s and returns it.
 func ParseIdentifier(s string) (Identifier, error) {
 	fields := strings.Split(s, "/")
 	if len(fields) != 3 {

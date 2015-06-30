@@ -4,6 +4,7 @@ package api // import "collectd.org/api"
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -82,6 +83,20 @@ type ValueList struct {
 	Time     time.Time
 	Interval time.Duration
 	Values   []Value
+	DSNames  []string
+}
+
+// DSName returns the name of the data source at the given index. If vl.DSNames
+// is nil, returns "value" if there is a single value and a string
+// representation of index otherwise.
+func (vl ValueList) DSName(index int) string {
+	if vl.DSNames != nil {
+		return vl.DSNames[index]
+	} else if len(vl.Values) != 1 {
+		return strconv.FormatInt(int64(index), 10)
+	}
+
+	return "value"
 }
 
 // Writer are objects accepting a ValueList for writing, for example to the

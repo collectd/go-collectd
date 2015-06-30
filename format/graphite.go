@@ -79,10 +79,8 @@ func (g *Graphite) formatValue(v api.Value) (string, error) {
 func (g *Graphite) Write(vl api.ValueList) error {
 	for i, v := range vl.Values {
 		dsName := ""
-		if len(vl.Values) > 1 {
-			dsName = fmt.Sprintf("%d", i)
-		} else if g.AlwaysAppendDS {
-			dsName = "value"
+		if g.AlwaysAppendDS || len(vl.Values) != 1 {
+			dsName = vl.DSName(i)
 		}
 
 		name := g.formatName(vl.Identifier, dsName)

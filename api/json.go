@@ -27,6 +27,7 @@ func (vl ValueList) MarshalJSON() ([]byte, error) {
 	jvl := jsonValueList{
 		Values:         make([]json.Number, len(vl.Values)),
 		DSTypes:        make([]string, len(vl.Values)),
+		DSNames:        make([]string, len(vl.Values)),
 		Time:           cdtime.New(vl.Time),
 		Interval:       cdtime.NewDuration(vl.Interval),
 		Host:           vl.Host,
@@ -48,10 +49,7 @@ func (vl ValueList) MarshalJSON() ([]byte, error) {
 			return nil, fmt.Errorf("unexpected data source type: %T", v)
 		}
 		jvl.DSTypes[i] = v.Type()
-	}
-
-	if len(vl.Values) == 1 {
-		jvl.DSNames = []string{"value"}
+		jvl.DSNames[i] = vl.DSName(i)
 	}
 
 	return json.Marshal(jvl)
@@ -110,6 +108,11 @@ func (vl *ValueList) UnmarshalJSON(data []byte) error {
 		default:
 			return fmt.Errorf("unexpected data source type: %q", jvl.DSTypes[i])
 		}
+	}
+
+	if len(jvl.DSNames) >= len(vl.Values) {
+		vl.DSNames = make([]string, len(vl.Values))
+		copy(vl.DSNames, jvl.DSNames)
 	}
 
 	return nil

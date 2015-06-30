@@ -20,9 +20,10 @@ func TestValueList(t *testing.T) {
 		Time:     time.Unix(1426585562, 999000000),
 		Interval: 10 * time.Second,
 		Values:   []Value{Gauge(42)},
+		DSNames:  []string{"legacy"},
 	}
 
-	want := `{"values":[42],"dstypes":["gauge"],"dsnames":["value"],"time":1426585562.999,"interval":10.000,"host":"example.com","plugin":"golang","type":"gauge"}`
+	want := `{"values":[42],"dstypes":["gauge"],"dsnames":["legacy"],"time":1426585562.999,"interval":10.000,"host":"example.com","plugin":"golang","type":"gauge"}`
 
 	got, err := vlWant.MarshalJSON()
 	if err != nil || string(got) != want {

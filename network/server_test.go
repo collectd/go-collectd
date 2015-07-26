@@ -38,3 +38,14 @@ func ExampleListenAndWrite() {
 	// blocks
 	log.Fatal(ListenAndWrite(":"+DefaultService, client))
 }
+
+// This example demonstrates how to start a server and cleanly shut it down
+func ExampleShutdown() {
+	srv := &Server{
+		Addr:   net.JoinHostPort("::", DefaultService),
+		Writer: format.NewPutval(os.Stdout),
+	}
+
+	srv.ListenAndWriteAsync()
+	srv.Shutdown()
+}

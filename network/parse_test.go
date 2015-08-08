@@ -1,7 +1,10 @@
 package network // import "collectd.org/network"
 
 import (
+	"bytes"
 	"encoding/hex"
+	"fmt"
+	"io/ioutil"
 	"testing"
 )
 
@@ -75,5 +78,37 @@ func TestParseString(t *testing.T) {
 	got, err = parseString([]byte{'t', 'e', 's', 't'})
 	if err == nil {
 		t.Errorf("got (%q, nil), want (\"\", ErrorInvalid)", got)
+	}
+
+}
+
+func TestRoundtrip(t *testing.T) {
+
+	for _, file := range []string{"testdata/packet1.bin", "testdata/packet2.bin"} {
+		testRoundTrip(t, file)
+	}
+}
+
+func testRoundTrip(t *testing.T, file string) {
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		panic(err)
+	}
+
+	vl, err := Parse(data, ParseOpts{})
+	if err != nil {
+		if vl != nil {
+			panic("vl != nil on error")
+		}
+	}
+
+	b := NewBuffer(0)
+	if err := b.Write(vl[0]); err != nil {
+		panic(err)
+	}
+
+	redone := b.buffer.Bytes()
+	if bytes.Compare(redone, data) != 0 {
+		panic(fmt.Sprintf("Failed to re-encode parsed packet: re-encoded [%v] original [%v]. Parsed [%v]", redone, data, vl[0].String()))
 	}
 }

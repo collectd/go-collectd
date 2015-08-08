@@ -68,16 +68,25 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (t Time) decompose() (s, ns int64) {
-	s = int64(t >> 30)
-	ns = (int64(t&0x3fffffff) * 1000000000) >> 30
-	return
+func (t Time) decompose() (int64, int64) {
+	s := int64(t >> 30)
+	ns := (int64(t&0x3fffffff) * 1000000000) >> 30
+	return s, ns
 }
 
 func newNano(ns uint64) Time {
 	// break into seconds and nano-seconds so the left-shift doesn't overflow.
 	s := ns / 1000000000
-	ns = ns % 1000000000
+	s = s << 30
 
-	return Time((s << 30) | ((ns << 30) / 1000000000))
+	ns = ns % 1000000000
+	ns = (ns << 30) / 1000000000
+
+	// division by a large number will necessitate a round; go rounds down
+	// and will lose a nanosecond
+	if ns != 0 {
+		ns += 1
+	}
+
+	return Time(s | ns)
 }

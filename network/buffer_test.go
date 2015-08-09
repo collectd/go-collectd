@@ -143,3 +143,16 @@ func TestWriteInt(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 }
+
+func TestUnknownType(t *testing.T) {
+	vl, err := Parse([]byte{0x00, 0x06, 0x00, 0x0f, 0x00, 0x01, 0x00, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30}, ParseOpts{})
+	if err != nil {
+		t.Errorf("Error parsing input %v", err)
+	}
+
+	s1 := NewBuffer(0)
+	if err := s1.Write(vl[0]); err == nil {
+		t.Errorf("Writing bad stream should return an error")
+	}
+
+}

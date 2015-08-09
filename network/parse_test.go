@@ -77,3 +77,10 @@ func TestParseString(t *testing.T) {
 		t.Errorf("got (%q, nil), want (\"\", ErrorInvalid)", got)
 	}
 }
+
+func TestOneByte(t *testing.T) {
+	_, err := Parse([]byte{0}, ParseOpts{})
+	if err == nil {
+		t.Errorf("Parsing byte stream containing single zero byte should return an error")
+	}
+}

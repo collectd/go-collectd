@@ -24,7 +24,7 @@ func TestConversion(t *testing.T) {
 	for _, s := range cases {
 		want, err := time.Parse(time.RFC3339Nano, s)
 		if err != nil {
-			t.Errorf("time.Parse(%q): got (%v, %v), want (<time.Time>, nil)", want, err)
+			t.Errorf("time.Parse(%q): got (%v, %v), want (<time.Time>, nil)", s, want, err)
 			continue
 		}
 

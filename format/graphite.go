@@ -68,7 +68,7 @@ func (g *Graphite) formatValue(v api.Value) (string, error) {
 	case api.Gauge:
 		return fmt.Sprintf("%.15g", v), nil
 	case api.Derive, api.Counter:
-		return fmt.Sprintf("%d", v), nil
+		return fmt.Sprintf("%v", v), nil
 	default:
 		return "", fmt.Errorf("unexpected type %T", v)
 	}

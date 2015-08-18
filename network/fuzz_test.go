@@ -1,3 +1,5 @@
+// +build gofuzz
+
 package network // import "collectd.org/network"
 
 import (

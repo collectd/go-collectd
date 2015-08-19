@@ -7,6 +7,13 @@ import (
 	"fmt"
 )
 
+// Fuzz is used by the https://github.com/dvyukov/go-fuzz framework
+// It's method signature must match the prescribed format and it is expected to panic upon failure
+// Usage:
+//   $ go-fuzz-build collectd.org/network
+//   $ mkdir -p /tmp/fuzzwork/corpus
+//   $ cp network/testdata/packet1.bin /tmp/fuzzwork/corpus
+//   $ go-fuzz -bin=./network-fuzz.zip -workdir=/tmp/fuzzwork
 func Fuzz(data []byte) int {
 
 	// deserialize

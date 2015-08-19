@@ -72,9 +72,8 @@ func (t Time) decompose() (s, ns int64) {
 	s = int64(t >> 30)
 
 	ns = (int64(t&0x3fffffff) * 1000000000)
-	// add 5e8 to correct rounding behavior.
-	ns = ns + 500000000
-	ns = ns >> 30
+	// add 2^29 to correct rounding behavior.
+	ns = (ns + (1 << 29)) >> 30
 
 	return
 }
@@ -84,9 +83,8 @@ func newNano(ns uint64) Time {
 	s := (ns / 1000000000) << 30
 
 	ns = (ns % 1000000000) << 30
-	// add 2^29 to correct rounding behavior.
-	ns = ns | (1 << 29)
-	ns = ns / 1000000000
+	// add 5e8 to correct rounding behavior.
+	ns = (ns + 500000000) / 1000000000
 
 	return Time(s | ns)
 }

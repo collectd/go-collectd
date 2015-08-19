@@ -46,7 +46,7 @@ The repository is organized as follows:
 * Package `collectd.org/network` implements collectd's
   [binary network protocol](https://collectd.org/wiki/index.php/Binary_protocol).
   It offers client and server implementations, see `network.Client` and
-  `network.ListenAndWrite()` for more detials.
+  `network.ListenAndWrite()` for more details.
 
 # Install
 

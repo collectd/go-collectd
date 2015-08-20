@@ -1,4 +1,5 @@
 // +build go1.5,cgo
+
 package plugin // import "collectd.org/plugin"
 
 // #cgo CPPFLAGS: -DHAVE_CONFIG_H

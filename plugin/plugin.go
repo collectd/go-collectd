@@ -1,4 +1,5 @@
 // +build go1.5,cgo
+
 /*
 Package plugin exports the functions required to write collectd plugins in Go.
 

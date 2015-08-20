@@ -34,6 +34,14 @@ func Parse(b []byte, opts ParseOpts) ([]api.ValueList, error) {
 	return parse(b, None, opts)
 }
 
+func readUint16(buf *bytes.Buffer) (uint16, error) {
+	read := buf.Next(2)
+	if len(read) != 2 {
+		return 0, ErrInvalid
+	}
+	return binary.BigEndian.Uint16(read), nil
+}
+
 func parse(b []byte, sl SecurityLevel, opts ParseOpts) ([]api.ValueList, error) {
 	var valueLists []api.ValueList
 
@@ -41,8 +49,15 @@ func parse(b []byte, sl SecurityLevel, opts ParseOpts) ([]api.ValueList, error) 
 	buf := bytes.NewBuffer(b)
 
 	for buf.Len() > 0 {
-		partType := binary.BigEndian.Uint16(buf.Next(2))
-		partLength := int(binary.BigEndian.Uint16(buf.Next(2)))
+		partType, err := readUint16(buf)
+		if err != nil {
+			return nil, ErrInvalid
+		}
+		partLengthUnsigned, err := readUint16(buf)
+		if err != nil {
+			return nil, ErrInvalid
+		}
+		partLength := int(partLengthUnsigned)
 
 		if partLength < 5 || partLength-4 > buf.Len() {
 			return valueLists, fmt.Errorf("invalid length %d", partLength)

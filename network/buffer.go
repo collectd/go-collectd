@@ -17,6 +17,9 @@ import (
 // size.
 var ErrNotEnoughSpace = errors.New("not enough space")
 
+// ErrUnknownType is returned when attempting to write values of an unknown type
+var ErrUnknownType = errors.New("unknown type")
+
 // Buffer contains the binary representation of multiple ValueLists and state
 // optimally write the next ValueList.
 type Buffer struct {
@@ -248,7 +251,7 @@ func (b *Buffer) writeValues(values []api.Value) error {
 		case api.Derive:
 			binary.Write(b.buffer, binary.BigEndian, uint8(dsTypeDerive))
 		default:
-			panic("unexpected type")
+			return ErrUnknownType
 		}
 	}
 
@@ -264,7 +267,7 @@ func (b *Buffer) writeValues(values []api.Value) error {
 		case api.Derive:
 			binary.Write(b.buffer, binary.BigEndian, int64(v))
 		default:
-			panic("unexpected type")
+			return ErrUnknownType
 		}
 	}
 

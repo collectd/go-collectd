@@ -32,7 +32,7 @@ Utilities for using [collectd](https://collectd.org/) together with [Go](http://
 This is a very simple package and very much a *Work in Progress*, so expect
 things to move around and be renamed a lot.
 
-The reposiroty is organized as follows:
+The repository is organized as follows:
 
 * Package `collectd.org/api` declares data structures you may already know from
   the *collectd* source code itself, such as `ValueList`.
@@ -46,7 +46,7 @@ The reposiroty is organized as follows:
 * Package `collectd.org/network` implements collectd's
   [binary network protocol](https://collectd.org/wiki/index.php/Binary_protocol).
   It offers client and server implementations, see `network.Client` and
-  `network.ListenAndWrite()` for more detials.
+  `network.ListenAndWrite()` for more details.
 
 # Install
 

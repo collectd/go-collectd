@@ -56,6 +56,8 @@ Then, define a type which implements the Reader interface by implementing the
 ExamplePlugin. Create an instance of this type and pass it to RegisterRead() in
 the init() function.
 
+Build flags
+
 To compile your plugin, set up the CGO_CPPFLAGS environment variable and call
 "go build" with the following options:
 
@@ -91,7 +93,7 @@ import (
 	"collectd.org/cdtime"
 )
 
-// Reader defined the interface for read callbacks, i.e. Go functions that are
+// Reader defines the interface for read callbacks, i.e. Go functions that are
 // called periodically from the collectd daemon.
 type Reader interface {
 	Read() error

@@ -250,6 +250,8 @@ func (b *Buffer) writeValues(values []api.Value) error {
 			binary.Write(b.buffer, binary.BigEndian, uint8(dsTypeGauge))
 		case api.Derive:
 			binary.Write(b.buffer, binary.BigEndian, uint8(dsTypeDerive))
+		case api.Counter:
+			binary.Write(b.buffer, binary.BigEndian, uint8(dsTypeCounter))
 		default:
 			return ErrUnknownType
 		}
@@ -266,6 +268,8 @@ func (b *Buffer) writeValues(values []api.Value) error {
 			}
 		case api.Derive:
 			binary.Write(b.buffer, binary.BigEndian, int64(v))
+		case api.Counter:
+			binary.Write(b.buffer, binary.BigEndian, uint64(v))
 		default:
 			return ErrUnknownType
 		}

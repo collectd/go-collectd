@@ -211,6 +211,9 @@ func decryptAES256(ciphertext []byte, lookup PasswordLookup) ([]byte, error) {
 	if lookup == nil {
 		return nil, errors.New("no PasswordLookup available")
 	}
+	if len(ciphertext) < 2 {
+		return nil, errors.New("buffer too short")
+	}
 
 	buf := bytes.NewBuffer(ciphertext)
 	userLen := int(binary.BigEndian.Uint16(buf.Next(2)))

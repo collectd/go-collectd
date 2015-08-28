@@ -7,6 +7,17 @@ import (
 	"fmt"
 )
 
+type fuzzLookup struct {
+	user, password string
+}
+
+func (fl fuzzLookup) Password(user string) (string, error) {
+	if fl.user == user {
+		return fl.password, nil
+	}
+	return "", fmt.Errorf("no such user: %q", user)
+}
+
 // Fuzz is used by the https://github.com/dvyukov/go-fuzz framework
 // It's method signature must match the prescribed format and it is expected to panic upon failure
 // Usage:
@@ -17,12 +28,14 @@ import (
 func Fuzz(data []byte) int {
 
 	// deserialize
-	d1, err := Parse(data, ParseOpts{})
-	if err != nil {
+	d1, err := Parse(data, ParseOpts{
+		PasswordLookup: fuzzLookup{
+			user:     "test",
+			password: "test",
+		},
+	})
+	if err != nil || len(d1) == 0 {
 		return 0
-	}
-	if len(d1) == 0 && err != nil {
-		panic("d1 is empty but no err was returned")
 	}
 
 	// serialize
@@ -36,7 +49,7 @@ func Fuzz(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	if len(d2) == 0 && err != nil {
+	if len(d2) == 0 {
 		panic("d2 is empty but no err was returned")
 	}
 

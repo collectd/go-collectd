@@ -46,7 +46,7 @@ func (srv *Server) ListenAndWrite() error {
 	}
 
 	var sock *net.UDPConn
-	if laddr.IP.IsMulticast() {
+	if laddr.IP != nil && laddr.IP.IsMulticast() {
 		var ifi *net.Interface
 		if srv.Interface != "" {
 			if ifi, err = net.InterfaceByName(srv.Interface); err != nil {

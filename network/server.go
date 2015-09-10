@@ -1,8 +1,10 @@
 package network // import "collectd.org/network"
 
 import (
+	"fmt"
 	"log"
 	"net"
+	"sync"
 
 	"collectd.org/api"
 )
@@ -30,11 +32,26 @@ type Server struct {
 	// Interface is the name of the interface to use when subscribing to a
 	// multicast group. Has no effect when using unicast.
 	Interface string
+	shutdown  chan (bool) // channel used to enable clean socket shutdown
 }
 
 // ListenAndWrite listens on the provided UDP address, parses the received
-// packets and writes them to the provided api.Writer.
+// packets and writes them to the provided api.Writer. This is a blocking call.
 func (srv *Server) ListenAndWrite() error {
+	return srv.listenAndWrite(nil)
+}
+
+// ListenAndWriteAsync listens on the provided UDP address, parses the received
+// packets and writes them to the provided api.Writer. Runs in goroutine and
+// returns to caller when socket is listening.
+func (srv *Server) ListenAndWriteAsync() {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go srv.listenAndWrite(&wg)
+	wg.Wait()
+}
+
+func (srv *Server) listenAndWrite(wg *sync.WaitGroup) error {
 	addr := srv.Addr
 	if addr == "" {
 		addr = ":" + DefaultService
@@ -72,20 +89,54 @@ func (srv *Server) ListenAndWrite() error {
 		SecurityLevel:  srv.SecurityLevel,
 	}
 
-	for {
-		n, err := sock.Read(buf)
-		if err != nil {
-			return err
-		}
+	values := make(chan []api.ValueList)
+	errors := make(chan error)
+	srv.shutdown = make(chan bool)
 
-		valueLists, err := Parse(buf[:n], popts)
-		if err != nil {
-			log.Printf("error while parsing: %v", err)
-			continue
-		}
+	go func() {
+		for {
+			n, err := sock.Read(buf)
+			if err != nil {
+				errors <- err
+				continue
+			}
 
-		go dispatch(valueLists, srv.Writer)
+			valueLists, err := Parse(buf[:n], popts)
+			if err != nil {
+				errors <- err
+				continue
+			}
+			values <- valueLists
+		}
+	}()
+
+	if wg != nil {
+		wg.Done()
 	}
+
+	for {
+		select {
+		case valueLists := <-values:
+			go dispatch(valueLists, srv.Writer)
+		case err := <-errors:
+			if err != nil {
+				log.Printf("error while parsing: %v", err)
+				return err
+			}
+		case <-srv.shutdown:
+			srv.shutdown = nil
+			return nil
+		}
+	}
+}
+
+// Shutdown acts on a server that is actively listening, shutting down it's UDP socket
+func (srv *Server) Shutdown() error {
+	if srv.shutdown == nil {
+		return fmt.Errorf("Cannot shutdown server. Not listening.")
+	}
+	srv.shutdown <- true
+	return nil
 }
 
 func dispatch(valueLists []api.ValueList, d api.Writer) {

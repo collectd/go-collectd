@@ -46,6 +46,8 @@ package plugin // import "collectd.org/plugin"
 //   vl->values_len++;
 // }
 //
+// data_source_t *ds_dsrc(data_set_t const *ds, size_t i) { return ds->ds + i; }
+//
 // void value_list_add_gauge (value_list_t *vl, gauge_t g) {
 //   value_t v = {.gauge = g};
 //   value_list_add (vl, v);
@@ -54,5 +56,23 @@ package plugin // import "collectd.org/plugin"
 // void value_list_add_derive (value_list_t *vl, derive_t d) {
 //   value_t v = {.derive = d};
 //   value_list_add (vl, v);
+// }
+//
+// gauge_t value_list_get_gauge (value_list_t *vl, size_t i) {
+//   return vl->values[i].gauge;
+// }
+//
+// derive_t value_list_get_derive (value_list_t *vl, size_t i) {
+//   return vl->values[i].derive;
+// }
+//
+// int (*register_write_ptr) (char const *, plugin_write_cb, user_data_t *);
+// int register_write_wrapper (char const *name, plugin_write_cb callback, user_data_t *user_data) {
+//   if (register_write_ptr == NULL) {
+//     void *hnd = dlopen(NULL, RTLD_LAZY);
+//     register_write_ptr = dlsym(hnd, "plugin_register_write");
+//     dlclose(hnd);
+//   }
+//   return (*register_write_ptr) (name, callback, user_data);
 // }
 import "C"

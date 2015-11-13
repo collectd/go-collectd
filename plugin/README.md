@@ -1,7 +1,7 @@
 ## collectd plugins in Go
 
-This is _extremely experimental_ code to write _collectd_ plugins in Go. It
-requires Go 1.5 and a recent version of the collectd sources to build.
+This is _experimental_ code to write _collectd_ plugins in Go. It requires Go
+1.5 and a recent version of the collectd sources to build.
 
 To set up your build environment, set the `CGO_CPPFLAGS` environment variable
 so that _cgo_ can find the required header files:

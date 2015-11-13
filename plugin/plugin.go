@@ -79,10 +79,17 @@ package plugin // import "collectd.org/plugin"
 //     cdtime_t interval,
 //     user_data_t *ud);
 //
+// data_source_t *ds_dsrc(data_set_t const *ds, size_t i);
+//
 // void value_list_add_gauge (value_list_t *vl, gauge_t g);
 // void value_list_add_derive (value_list_t *vl, derive_t d);
+// gauge_t value_list_get_gauge (value_list_t *, size_t);
+// derive_t value_list_get_derive (value_list_t *, size_t);
 //
 // int wrap_read_callback(user_data_t *);
+//
+// int register_write_wrapper (char const *, plugin_write_cb, user_data_t *);
+// int wrap_write_callback(data_set_t *, value_list_t *, user_data_t *);
 import "C"
 
 import (
@@ -97,11 +104,6 @@ import (
 // called periodically from the collectd daemon.
 type Reader interface {
 	Read() error
-}
-
-type readFunction struct {
-	name     string
-	callback Reader
 }
 
 func strcpy(dst []C.char, src string) {
@@ -178,6 +180,11 @@ func Write(vl api.ValueList) error {
 	return nil
 }
 
+type readFunction struct {
+	name     string
+	callback Reader
+}
+
 // RegisterRead registers a new read function with the daemon which is called
 // periodically.
 func RegisterRead(name string, r Reader) error {
@@ -216,6 +223,83 @@ func wrap_read_callback(ud *C.user_data_t) C.int {
 
 	if err := rf.callback.Read(); err != nil {
 		Errorf("%s plugin: Read() failed: %v", rf.name, err)
+		return -1
+	}
+
+	return 0
+}
+
+type writeFunction struct {
+	name     string
+	callback api.Writer
+}
+
+// RegisterWrite registers a new write function with the daemon which is called
+// for every metric collected by collectd.
+//
+// Please note that multiple threads may call this function concurrently. If
+// you're accessing shared resources, such as a memory buffer, you have to
+// implement appropriate locking around these accesses.
+func RegisterWrite(name string, w api.Writer) error {
+	wf := writeFunction{
+		name:     name,
+		callback: w,
+	}
+
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+
+	ud := C.user_data_t{
+		data:      unsafe.Pointer(&wf),
+		free_func: nil,
+	}
+
+	status, err := C.register_write_wrapper(cName, C.plugin_write_cb(C.wrap_write_callback), &ud)
+	if err != nil {
+		return err
+	} else if status != 0 {
+		return fmt.Errorf("register_write_wrapper failed with status %d", status)
+	}
+
+	return nil
+}
+
+//export wrap_write_callback
+func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_t) C.int {
+	wf := (*writeFunction)(ud.data)
+
+	vl := api.ValueList{
+		Identifier: api.Identifier{
+			Host:           C.GoString(&cvl.host[0]),
+			Plugin:         C.GoString(&cvl.plugin[0]),
+			PluginInstance: C.GoString(&cvl.plugin_instance[0]),
+			Type:           C.GoString(&cvl._type[0]),
+			TypeInstance:   C.GoString(&cvl.type_instance[0]),
+		},
+		Time:     cdtime.Time(cvl.time).Time(),
+		Interval: cdtime.Time(cvl.interval).Duration(),
+	}
+
+	for i := C.size_t(0); i < ds.ds_num; i++ {
+		dsrc := C.ds_dsrc(ds, i)
+
+		switch dsrc._type {
+		case C.DS_TYPE_GAUGE:
+			v := C.value_list_get_gauge(cvl, i)
+			vl.Values = append(vl.Values, api.Gauge(v))
+		case C.DS_TYPE_DERIVE:
+			v := C.value_list_get_derive(cvl, i)
+			vl.Values = append(vl.Values, api.Derive(v))
+		default:
+			Errorf("%s plugin: data source type %d is not supported", wf.name, dsrc._type)
+			return -1
+		}
+
+		vl.DSNames = append(vl.DSNames, C.GoString(&dsrc.name[0]))
+	}
+
+	if err := wf.callback.Write(vl); err != nil {
+		Errorf("%s plugin: Write() failed: %v", wf.name, err)
 		return -1
 	}
 

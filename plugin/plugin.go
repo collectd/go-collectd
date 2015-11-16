@@ -20,7 +20,7 @@ example:
 
   type ExamplePlugin struct{}
 
-  func (p *ExamplePlugin) Read() error {
+  func (*ExamplePlugin) Read() error {
 	  vl := api.ValueList{
 		  Identifier: api.Identifier{
 			  Host:   "example.com",
@@ -180,27 +180,19 @@ func Write(vl api.ValueList) error {
 	return nil
 }
 
-type readFunction struct {
-	name     string
-	callback Reader
-}
+// readFuncs holds references to all read callbacks, so the garbage collector
+// doesn't get any funny ideas.
+var readFuncs = make(map[string]Reader)
 
 // RegisterRead registers a new read function with the daemon which is called
 // periodically.
 func RegisterRead(name string, r Reader) error {
-	rf := readFunction{
-		name:     name,
-		callback: r,
-	}
-
 	cGroup := C.CString("golang")
 	defer C.free(unsafe.Pointer(cGroup))
 
 	cName := C.CString(name)
-	defer C.free(unsafe.Pointer(cName))
-
 	ud := C.user_data_t{
-		data:      unsafe.Pointer(&rf),
+		data:      unsafe.Pointer(cName),
 		free_func: nil,
 	}
 
@@ -214,25 +206,29 @@ func RegisterRead(name string, r Reader) error {
 		return fmt.Errorf("register_read_wrapper failed with status %d", status)
 	}
 
+	readFuncs[name] = r
 	return nil
 }
 
 //export wrap_read_callback
 func wrap_read_callback(ud *C.user_data_t) C.int {
-	rf := (*readFunction)(ud.data)
+	name := C.GoString((*C.char)(ud.data))
+	r, ok := readFuncs[name]
+	if !ok {
+		return -1
+	}
 
-	if err := rf.callback.Read(); err != nil {
-		Errorf("%s plugin: Read() failed: %v", rf.name, err)
+	if err := r.Read(); err != nil {
+		Errorf("%s plugin: Read() failed: %v", name, err)
 		return -1
 	}
 
 	return 0
 }
 
-type writeFunction struct {
-	name     string
-	callback api.Writer
-}
+// writeFuncs holds references to all write callbacks, so the garbage collector
+// doesn't get any funny ideas.
+var writeFuncs = make(map[string]api.Writer)
 
 // RegisterWrite registers a new write function with the daemon which is called
 // for every metric collected by collectd.
@@ -241,16 +237,9 @@ type writeFunction struct {
 // you're accessing shared resources, such as a memory buffer, you have to
 // implement appropriate locking around these accesses.
 func RegisterWrite(name string, w api.Writer) error {
-	wf := writeFunction{
-		name:     name,
-		callback: w,
-	}
-
 	cName := C.CString(name)
-	defer C.free(unsafe.Pointer(cName))
-
 	ud := C.user_data_t{
-		data:      unsafe.Pointer(&wf),
+		data:      unsafe.Pointer(cName),
 		free_func: nil,
 	}
 
@@ -261,12 +250,17 @@ func RegisterWrite(name string, w api.Writer) error {
 		return fmt.Errorf("register_write_wrapper failed with status %d", status)
 	}
 
+	writeFuncs[name] = w
 	return nil
 }
 
 //export wrap_write_callback
 func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_t) C.int {
-	wf := (*writeFunction)(ud.data)
+	name := C.GoString((*C.char)(ud.data))
+	w, ok := writeFuncs[name]
+	if !ok {
+		return -1
+	}
 
 	vl := api.ValueList{
 		Identifier: api.Identifier{
@@ -291,15 +285,15 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 			v := C.value_list_get_derive(cvl, i)
 			vl.Values = append(vl.Values, api.Derive(v))
 		default:
-			Errorf("%s plugin: data source type %d is not supported", wf.name, dsrc._type)
+			Errorf("%s plugin: data source type %d is not supported", name, dsrc._type)
 			return -1
 		}
 
 		vl.DSNames = append(vl.DSNames, C.GoString(&dsrc.name[0]))
 	}
 
-	if err := wf.callback.Write(vl); err != nil {
-		Errorf("%s plugin: Write() failed: %v", wf.name, err)
+	if err := w.Write(vl); err != nil {
+		Errorf("%s plugin: Write() failed: %v", name, err)
 		return -1
 	}
 

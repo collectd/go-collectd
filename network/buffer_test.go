@@ -148,15 +148,27 @@ func TestWriteInt(t *testing.T) {
 	}
 }
 
+// unknownType implements the api.Value interface.
+type unknownType int
+
+func (v unknownType) Type() string { return "unknown" }
+
 func TestUnknownType(t *testing.T) {
-	vl, err := Parse([]byte{0x00, 0x06, 0x00, 0x0f, 0x00, 0x01, 0x00, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30}, ParseOpts{})
-	if err != nil {
-		t.Errorf("Error parsing input %v", err)
+	vl := api.ValueList{
+		Identifier: api.Identifier{
+			Host:           "example.com",
+			Plugin:         "golang",
+			PluginInstance: "test",
+			Type:           "unknown",
+		},
+		Time:     time.Unix(1426076681, 234000000), // Wed Mar 11 13:24:41 CET 2015
+		Interval: 10 * time.Second,
+		Values:   []api.Value{unknownType(2)},
 	}
 
 	s1 := NewBuffer(0)
-	if err := s1.Write(vl[0]); err == nil {
-		t.Errorf("Writing bad stream should return an error")
+	if err := s1.Write(vl); err != ErrUnknownType {
+		t.Errorf("Buffer.Write(%v) = %v, want %v", vl, err, ErrUnknownType)
 	}
 
 }

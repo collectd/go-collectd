@@ -162,6 +162,35 @@ func (ds *DataSet) Values(args ...interface{}) ([]Value, error) {
 	return ret, nil
 }
 
+// Check does sanity checking of vl and returns an error if it finds a problem.
+// Sanity checking includes checking the concrete types in the Values slice
+// against the DataSet's Sources.
+func (ds *DataSet) Check(vl *ValueList) error {
+	if ds.Name != vl.Type {
+		return fmt.Errorf("vl.Type = %q, want %q", vl.Type, ds.Name)
+	}
+
+	if len(ds.Sources) != len(vl.Values) {
+		return fmt.Errorf("len(vl.Values) = %d, want %d", len(vl.Values), len(ds.Sources))
+	}
+
+	if len(ds.Sources) != len(vl.DSNames) {
+		return fmt.Errorf("len(vl.DSNames) = %d, want %d", len(vl.DSNames), len(ds.Sources))
+	}
+
+	for i, dsrc := range ds.Sources {
+		if dsrc.Name != vl.DSNames[i] {
+			return fmt.Errorf("vl.DSNames[%d] = %q, want %q", i, vl.DSNames[i], dsrc.Name)
+		}
+
+		if reflect.TypeOf(vl.Values[i]) != dsrc.Type {
+			return fmt.Errorf("vl.Values[%d] is a %T, want %s", i, vl.Values[i], dsrc.Type.Name())
+		}
+	}
+
+	return nil
+}
+
 // DataSource defines one metric within a "Type" / DataSet. Type is one of
 // Counter, Derive and Gauge. Min and Max apply to the rates of Counter and
 // Derive types, not the raw incremental value.

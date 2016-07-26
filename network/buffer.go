@@ -77,6 +77,21 @@ func (b *Buffer) Available() int {
 	return b.size - unavail
 }
 
+// Bytes returns the content of the buffer as a byte slice.
+// If signing or encrypting are enabled, the content will be signed / encrypted
+// prior to being returned.
+// This method resets the buffer.
+func (b *Buffer) Bytes() ([]byte, error) {
+	tmp := make([]byte, b.size)
+
+	n, err := b.Read(tmp)
+	if err != nil {
+		return nil, err
+	}
+
+	return tmp[:n], nil
+}
+
 // Read reads the buffer into "out". If signing or encryption is enabled, data
 // will be signed / encrypted before writing it to "out". Returns
 // ErrNotEnoughSpace if the provided buffer is too small to hold the entire

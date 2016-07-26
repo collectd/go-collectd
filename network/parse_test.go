@@ -5,7 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"reflect"
+	"strings"
 	"testing"
+
+	"collectd.org/api"
 )
 
 func TestParse(t *testing.T) {
@@ -83,7 +87,6 @@ func TestParseString(t *testing.T) {
 }
 
 func TestRoundtrip(t *testing.T) {
-
 	for _, file := range []string{"testdata/packet1.bin", "testdata/packet2.bin"} {
 		testRoundTrip(t, file)
 	}
@@ -117,5 +120,120 @@ func TestOneByte(t *testing.T) {
 	_, err := Parse([]byte{0}, ParseOpts{})
 	if err == nil {
 		t.Errorf("Parsing byte stream containing single zero byte should return an error")
+	}
+}
+
+func TestParseOpts_TypesDB(t *testing.T) {
+	cases := []struct {
+		Type        string
+		Values      []api.Value
+		WantDSNames []string
+		WantValues  []api.Value
+		WantErr     bool
+	}{
+		{ // DERIVE, successful
+			Type:        "derive",
+			Values:      []api.Value{api.Derive(42)},
+			WantValues:  []api.Value{api.Derive(42)},
+			WantDSNames: []string{"value"},
+		},
+		{ // convert GAUGE to DERIVE
+			Type:        "derive",
+			Values:      []api.Value{api.Gauge(42.0)},
+			WantValues:  []api.Value{api.Derive(42)},
+			WantDSNames: []string{"value"},
+		},
+		{ // GAUGE, successful
+			Type:        "gauge",
+			Values:      []api.Value{api.Gauge(42.0)},
+			WantValues:  []api.Value{api.Gauge(42.0)},
+			WantDSNames: []string{"value"},
+		},
+		{ // convert DERIVE to GAUGE
+			Type:        "gauge",
+			Values:      []api.Value{api.Derive(42)},
+			WantValues:  []api.Value{api.Gauge(42.0)},
+			WantDSNames: []string{"value"},
+		},
+		{ // two data sources
+			Type:        "if_octets",
+			Values:      []api.Value{api.Derive(1), api.Derive(2)},
+			WantValues:  []api.Value{api.Derive(1), api.Derive(2)},
+			WantDSNames: []string{"rx", "tx"},
+		},
+		{ // convert to DERIVE
+			Type:        "if_octets",
+			Values:      []api.Value{api.Gauge(3.0), api.Gauge(4.0)},
+			WantValues:  []api.Value{api.Derive(3), api.Derive(4)},
+			WantDSNames: []string{"rx", "tx"},
+		},
+		{ // too few values
+			Type:    "if_octets",
+			Values:  []api.Value{api.Derive(42)},
+			WantErr: true,
+		},
+		{ // too many values
+			Type:    "derive",
+			Values:  []api.Value{api.Derive(1), api.Derive(2)},
+			WantErr: true,
+		},
+	}
+
+	typesDB, err := api.NewTypesDB(strings.NewReader(`
+derive		value:DERIVE:0:U
+gauge		value:GAUGE:0:U
+if_octets	rx:DERIVE:0:U, tx:DERIVE:0:U
+`))
+	if err != nil {
+		t.Fatalf("NewTypesDB failed: %v", err)
+	}
+
+	for _, c := range cases {
+		netBuf := NewBuffer(0)
+		inVL := api.ValueList{
+			Identifier: api.Identifier{
+				Host:   "example.com",
+				Plugin: "golang",
+				Type:   c.Type,
+			},
+			Values: c.Values,
+		}
+
+		if err := netBuf.Write(inVL); err != nil {
+			t.Errorf("Write(%#v): %v", inVL, err)
+			continue
+		}
+
+		wireBuf, err := netBuf.Bytes()
+		if err != nil {
+			t.Errorf("Buffer.Bytes(): %v", err)
+			continue
+		}
+
+		vls, err := Parse(wireBuf, ParseOpts{TypesDB: typesDB})
+		if err != nil {
+			t.Errorf("Parse(%#v) = (%v, %v), want (%v, %v)", c, vls, err, "[]api.ValueList", nil)
+			continue
+		}
+		if c.WantErr {
+			if len(vls) != 0 {
+				t.Errorf("Parse(%#v) = (%v, %v), want (%v, %v)", c, vls, err, nil, nil)
+			}
+			continue
+		}
+
+		if len(vls) != 1 {
+			t.Errorf("len(vls) = %d, want %d", len(vls), 1)
+			continue
+		}
+		vl := vls[0]
+
+		if !reflect.DeepEqual(vl.Values, c.WantValues) {
+			t.Errorf("vl.Values = %#v, want %#v", vl.Values, c.Values)
+		}
+
+		if !reflect.DeepEqual(vl.DSNames, c.WantDSNames) {
+			t.Errorf("vl.DSNames = %v, want %v", vl.DSNames, c.WantDSNames)
+		}
 	}
 }

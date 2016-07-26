@@ -25,6 +25,8 @@ type ParseOpts struct {
 	// caller. If set to "Sign", only signed and encrypted data is returned
 	// by Parse(), if set to "Encrypt", only encrypted data is returned.
 	SecurityLevel SecurityLevel
+	// TypesDB for looking up DS names and verify data source types.
+	TypesDB *api.TypesDB
 }
 
 // Parse parses the binary network format and returns a slice of ValueLists. If
@@ -83,11 +85,38 @@ func parse(b []byte, sl SecurityLevel, opts ParseOpts) ([]api.ValueList, error) 
 			}
 
 		case typeValues:
-			vl := state
-			var err error
-			if vl.Values, err = parseValues(payload); err != nil {
+			v, err := parseValues(payload)
+			if err != nil {
 				return valueLists, err
 			}
+
+			vl := state
+			vl.Values = v
+
+			if opts.TypesDB != nil {
+				ds, ok := opts.TypesDB.DataSet(state.Type)
+				if !ok {
+					log.Printf("unable to find %q in TypesDB", state.Type)
+					continue
+				}
+
+				// convert []api.Value to []interface{}
+				ifValues := make([]interface{}, len(vl.Values))
+				for i, v := range vl.Values {
+					ifValues[i] = v
+				}
+
+				// cast all values to the correct data source type.
+				// Returns an error if the number of values is incorrect.
+				v, err := ds.Values(ifValues...)
+				if err != nil {
+					log.Printf("unable to convert values according to TypesDB: %v", err)
+					continue
+				}
+				vl.Values = v
+				vl.DSNames = ds.Names()
+			}
+
 			if opts.SecurityLevel <= sl {
 				valueLists = append(valueLists, vl)
 			}

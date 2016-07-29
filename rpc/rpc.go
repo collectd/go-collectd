@@ -8,21 +8,22 @@ import (
 	"collectd.org/rpc/proto/types"
 	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
+// Server is an idiomatic Go interface for the CollectdServer in
+// collectd.org/rpc/proto. Use RegisterServer() to hook an object, which
+// implements this interface, up to the gRPC server.
 type Server interface {
 	api.Writer
 	Query(api.Identifier) ([]*api.ValueList, error)
 }
 
-type wrapper struct {
-	srv Server
-}
-
-func Wrap(s Server) pb.CollectdServer {
-	return &wrapper{
-		srv: s,
-	}
+// RegisterServer registers the implementation srv with the gRPC instance s.
+func RegisterServer(s *grpc.Server, srv Server) {
+	pb.RegisterCollectdServer(s, &wrapper{
+		srv: srv,
+	})
 }
 
 func MarshalValue(v api.Value) (*types.Value, error) {
@@ -129,6 +130,11 @@ func UnmarshalValueList(in *types.ValueList) (*api.ValueList, error) {
 		Values:     values,
 		// TODO(octo): DSNames
 	}, nil
+}
+
+// wrapper implements pb.CollectdServer using srv.
+type wrapper struct {
+	srv Server
 }
 
 func (wrap *wrapper) DispatchValues(_ context.Context, req *pb.DispatchValuesRequest) (*pb.DispatchValuesReply, error) {

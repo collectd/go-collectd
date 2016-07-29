@@ -1,11 +1,11 @@
-package server // import "collectd.org/rpc/server"
+package rpc // import "collectd.org/rpc"
 
 import (
 	"fmt"
 
 	"collectd.org/api"
-	"collectd.org/rpc"
-	"collectd.org/rpc/types"
+	pb "collectd.org/rpc/proto"
+	"collectd.org/rpc/proto/types"
 	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/net/context"
 )
@@ -19,7 +19,7 @@ type wrapper struct {
 	srv Server
 }
 
-func Wrap(s Server) rpc.CollectdServer {
+func Wrap(s Server) pb.CollectdServer {
 	return &wrapper{
 		srv: s,
 	}
@@ -131,7 +131,7 @@ func unmarshalValueList(in *types.ValueList) (*api.ValueList, error) {
 	}, nil
 }
 
-func (wrap *wrapper) DispatchValues(_ context.Context, req *rpc.DispatchValuesRequest) (*rpc.DispatchValuesReply, error) {
+func (wrap *wrapper) DispatchValues(_ context.Context, req *pb.DispatchValuesRequest) (*pb.DispatchValuesReply, error) {
 	vl, err := unmarshalValueList(req.GetValues())
 	if err != nil {
 		return nil, err
@@ -141,10 +141,10 @@ func (wrap *wrapper) DispatchValues(_ context.Context, req *rpc.DispatchValuesRe
 		return nil, err
 	}
 
-	return &rpc.DispatchValuesReply{}, nil
+	return &pb.DispatchValuesReply{}, nil
 }
 
-func (wrap *wrapper) QueryValues(_ context.Context, req *rpc.QueryValuesRequest) (*rpc.QueryValuesReply, error) {
+func (wrap *wrapper) QueryValues(_ context.Context, req *pb.QueryValuesRequest) (*pb.QueryValuesReply, error) {
 	id := unmarshalIdentifier(req.GetIdentifier())
 
 	vls, err := wrap.srv.Query(id)
@@ -161,7 +161,7 @@ func (wrap *wrapper) QueryValues(_ context.Context, req *rpc.QueryValuesRequest)
 		valuesPb = append(valuesPb, pb)
 	}
 
-	return &rpc.QueryValuesReply{
+	return &pb.QueryValuesReply{
 		Values: valuesPb,
 	}, nil
 }

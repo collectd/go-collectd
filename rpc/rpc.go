@@ -25,7 +25,7 @@ func Wrap(s Server) pb.CollectdServer {
 	}
 }
 
-func marshalValue(v api.Value) (*types.Value, error) {
+func MarshalValue(v api.Value) (*types.Value, error) {
 	switch v := v.(type) {
 	case api.Counter:
 		return &types.Value{
@@ -44,7 +44,7 @@ func marshalValue(v api.Value) (*types.Value, error) {
 	}
 }
 
-func unmarshalValue(in *types.Value) (api.Value, error) {
+func UnmarshalValue(in *types.Value) (api.Value, error) {
 	switch pbValue := in.GetValue().(type) {
 	case *types.Value_Counter:
 		return api.Counter(pbValue.Counter), nil
@@ -57,7 +57,7 @@ func unmarshalValue(in *types.Value) (api.Value, error) {
 	}
 }
 
-func marshalIdentifier(id api.Identifier) *types.Identifier {
+func MarshalIdentifier(id api.Identifier) *types.Identifier {
 	return &types.Identifier{
 		Host:           id.Host,
 		Plugin:         id.Plugin,
@@ -67,7 +67,7 @@ func marshalIdentifier(id api.Identifier) *types.Identifier {
 	}
 }
 
-func unmarshalIdentifier(in *types.Identifier) api.Identifier {
+func UnmarshalIdentifier(in *types.Identifier) api.Identifier {
 	return api.Identifier{
 		Host:           in.Host,
 		Plugin:         in.Plugin,
@@ -77,7 +77,7 @@ func unmarshalIdentifier(in *types.Identifier) api.Identifier {
 	}
 }
 
-func marshalValueList(vl *api.ValueList) (*types.ValueList, error) {
+func MarshalValueList(vl *api.ValueList) (*types.ValueList, error) {
 	t, err := ptypes.TimestampProto(vl.Time)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func marshalValueList(vl *api.ValueList) (*types.ValueList, error) {
 
 	var pbValues []*types.Value
 	for _, v := range vl.Values {
-		pbValue, err := marshalValue(v)
+		pbValue, err := MarshalValue(v)
 		if err != nil {
 			return nil, err
 		}
@@ -97,11 +97,11 @@ func marshalValueList(vl *api.ValueList) (*types.ValueList, error) {
 		Value:      pbValues,
 		Time:       t,
 		Interval:   ptypes.DurationProto(vl.Interval),
-		Identifier: marshalIdentifier(vl.Identifier),
+		Identifier: MarshalIdentifier(vl.Identifier),
 	}, nil
 }
 
-func unmarshalValueList(in *types.ValueList) (*api.ValueList, error) {
+func UnmarshalValueList(in *types.ValueList) (*api.ValueList, error) {
 	t, err := ptypes.Timestamp(in.GetTime())
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func unmarshalValueList(in *types.ValueList) (*api.ValueList, error) {
 
 	var values []api.Value
 	for _, pbValue := range in.GetValue() {
-		v, err := unmarshalValue(pbValue)
+		v, err := UnmarshalValue(pbValue)
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +123,7 @@ func unmarshalValueList(in *types.ValueList) (*api.ValueList, error) {
 	}
 
 	return &api.ValueList{
-		Identifier: unmarshalIdentifier(in.GetIdentifier()),
+		Identifier: UnmarshalIdentifier(in.GetIdentifier()),
 		Time:       t,
 		Interval:   interval,
 		Values:     values,
@@ -132,7 +132,7 @@ func unmarshalValueList(in *types.ValueList) (*api.ValueList, error) {
 }
 
 func (wrap *wrapper) DispatchValues(_ context.Context, req *pb.DispatchValuesRequest) (*pb.DispatchValuesReply, error) {
-	vl, err := unmarshalValueList(req.GetValues())
+	vl, err := UnmarshalValueList(req.GetValues())
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (wrap *wrapper) DispatchValues(_ context.Context, req *pb.DispatchValuesReq
 }
 
 func (wrap *wrapper) QueryValues(_ context.Context, req *pb.QueryValuesRequest) (*pb.QueryValuesReply, error) {
-	id := unmarshalIdentifier(req.GetIdentifier())
+	id := UnmarshalIdentifier(req.GetIdentifier())
 
 	vls, err := wrap.srv.Query(id)
 	if err != nil {
@@ -154,7 +154,7 @@ func (wrap *wrapper) QueryValues(_ context.Context, req *pb.QueryValuesRequest) 
 
 	var valuesPb []*types.ValueList
 	for _, vl := range vls {
-		pb, err := marshalValueList(vl)
+		pb, err := MarshalValueList(vl)
 		if err != nil {
 			return nil, err
 		}

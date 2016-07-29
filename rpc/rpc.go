@@ -16,7 +16,7 @@ import (
 // implements this interface, up to the gRPC server.
 type Server interface {
 	api.Writer
-	Query(api.Identifier) ([]*api.ValueList, error)
+	Query(*api.Identifier) ([]*api.ValueList, error)
 }
 
 // RegisterServer registers the implementation srv with the gRPC instance s.
@@ -58,7 +58,7 @@ func UnmarshalValue(in *types.Value) (api.Value, error) {
 	}
 }
 
-func MarshalIdentifier(id api.Identifier) *types.Identifier {
+func MarshalIdentifier(id *api.Identifier) *types.Identifier {
 	return &types.Identifier{
 		Host:           id.Host,
 		Plugin:         id.Plugin,
@@ -68,8 +68,8 @@ func MarshalIdentifier(id api.Identifier) *types.Identifier {
 	}
 }
 
-func UnmarshalIdentifier(in *types.Identifier) api.Identifier {
-	return api.Identifier{
+func UnmarshalIdentifier(in *types.Identifier) *api.Identifier {
+	return &api.Identifier{
 		Host:           in.Host,
 		Plugin:         in.Plugin,
 		PluginInstance: in.PluginInstance,
@@ -98,7 +98,7 @@ func MarshalValueList(vl *api.ValueList) (*types.ValueList, error) {
 		Value:      pbValues,
 		Time:       t,
 		Interval:   ptypes.DurationProto(vl.Interval),
-		Identifier: MarshalIdentifier(vl.Identifier),
+		Identifier: MarshalIdentifier(&vl.Identifier),
 	}, nil
 }
 
@@ -124,7 +124,7 @@ func UnmarshalValueList(in *types.ValueList) (*api.ValueList, error) {
 	}
 
 	return &api.ValueList{
-		Identifier: UnmarshalIdentifier(in.GetIdentifier()),
+		Identifier: *UnmarshalIdentifier(in.GetIdentifier()),
 		Time:       t,
 		Interval:   interval,
 		Values:     values,

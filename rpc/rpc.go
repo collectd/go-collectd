@@ -7,6 +7,7 @@ import (
 	pb "collectd.org/rpc/proto"
 	"collectd.org/rpc/proto/types"
 	"github.com/golang/protobuf/ptypes"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
@@ -33,6 +34,41 @@ func RegisterDispatchServer(s *grpc.Server, srv DispatchServer) {
 	pb.RegisterDispatchServer(s, &dispatchWrapper{
 		srv: srv,
 	})
+}
+
+type dispatchClient struct {
+	ctx    context.Context
+	client pb.DispatchClient
+}
+
+func NewDispatchClient(ctx context.Context, conn *grpc.ClientConn) api.Writer {
+	return &dispatchClient{
+		ctx:    ctx,
+		client: pb.NewDispatchClient(conn),
+	}
+}
+
+func (c *dispatchClient) Write(vl api.ValueList) error {
+	pbVL, err := MarshalValueList(&vl)
+	if err != nil {
+		return err
+	}
+
+	stream, err := c.client.DispatchValues(c.ctx)
+	if err != nil {
+		return err
+	}
+
+	req := &pb.DispatchValuesRequest{
+		ValueList: pbVL,
+	}
+	if err := stream.Send(req); err != nil {
+		stream.CloseSend()
+		return err
+	}
+
+	_, err = stream.CloseAndRecv()
+	return err
 }
 
 func MarshalValue(v api.Value) (*types.Value, error) {

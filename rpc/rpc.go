@@ -16,7 +16,7 @@ import (
 // RegisterCollectdServer() to hook an object, which implements this interface,
 // up to the gRPC server.
 type CollectdServer interface {
-	Query(*api.Identifier) (<-chan *api.ValueList, error)
+	Query(context.Context, *api.Identifier) (<-chan *api.ValueList, error)
 }
 
 // RegisterCollectdServer registers the implementation srv with the gRPC instance s.
@@ -197,6 +197,7 @@ func (wrap *dispatchWrapper) DispatchValues(stream pb.Dispatch_DispatchValuesSer
 			return err
 		}
 
+		// TODO(octo): pass stream.Context() to srv.Write() once the interface allows that.
 		if err := wrap.srv.Write(*vl); err != nil {
 			return grpc.Errorf(codes.Internal, "Write(%v): %v", vl, err)
 		}
@@ -213,7 +214,7 @@ type collectdWrapper struct {
 func (wrap *collectdWrapper) QueryValues(req *pb.QueryValuesRequest, stream pb.Collectd_QueryValuesServer) error {
 	id := UnmarshalIdentifier(req.GetIdentifier())
 
-	ch, err := wrap.srv.Query(id)
+	ch, err := wrap.srv.Query(stream.Context(), id)
 	if err != nil {
 		return grpc.Errorf(codes.Internal, "Query(%v): %v", id, err)
 	}

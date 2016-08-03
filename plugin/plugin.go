@@ -14,6 +14,8 @@ example:
   package main
 
   import (
+	  "time"
+
 	  "collectd.org/api"
 	  "collectd.org/plugin"
   )

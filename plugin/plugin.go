@@ -83,10 +83,12 @@ package plugin // import "collectd.org/plugin"
 //
 // data_source_t *ds_dsrc(data_set_t const *ds, size_t i);
 //
-// void value_list_add_gauge (value_list_t *vl, gauge_t g);
-// void value_list_add_derive (value_list_t *vl, derive_t d);
-// gauge_t value_list_get_gauge (value_list_t *, size_t);
-// derive_t value_list_get_derive (value_list_t *, size_t);
+// void value_list_add_counter (value_list_t *, counter_t);
+// void value_list_add_derive  (value_list_t *, derive_t);
+// void value_list_add_gauge   (value_list_t *, gauge_t);
+// counter_t value_list_get_counter (value_list_t *, size_t);
+// derive_t  value_list_get_derive  (value_list_t *, size_t);
+// gauge_t   value_list_get_gauge   (value_list_t *, size_t);
 //
 // int wrap_read_callback(user_data_t *);
 //
@@ -133,13 +135,17 @@ func newValueListT(vl api.ValueList) (*C.value_list_t, error) {
 
 	for _, v := range vl.Values {
 		switch v := v.(type) {
-		case api.Gauge:
-			if _, err := C.value_list_add_gauge(ret, C.gauge_t(v)); err != nil {
-				return nil, fmt.Errorf("value_list_add_gauge: %v", err)
+		case api.Counter:
+			if _, err := C.value_list_add_counter(ret, C.counter_t(v)); err != nil {
+				return nil, fmt.Errorf("value_list_add_counter: %v", err)
 			}
 		case api.Derive:
 			if _, err := C.value_list_add_derive(ret, C.derive_t(v)); err != nil {
 				return nil, fmt.Errorf("value_list_add_derive: %v", err)
+			}
+		case api.Gauge:
+			if _, err := C.value_list_add_gauge(ret, C.gauge_t(v)); err != nil {
+				return nil, fmt.Errorf("value_list_add_gauge: %v", err)
 			}
 		default:
 			return nil, fmt.Errorf("not yet supported: %T", v)
@@ -280,12 +286,15 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 		dsrc := C.ds_dsrc(ds, i)
 
 		switch dsrc._type {
-		case C.DS_TYPE_GAUGE:
-			v := C.value_list_get_gauge(cvl, i)
-			vl.Values = append(vl.Values, api.Gauge(v))
+		case C.DS_TYPE_COUNTER:
+			v := C.value_list_get_counter(cvl, i)
+			vl.Values = append(vl.Values, api.Counter(v))
 		case C.DS_TYPE_DERIVE:
 			v := C.value_list_get_derive(cvl, i)
 			vl.Values = append(vl.Values, api.Derive(v))
+		case C.DS_TYPE_GAUGE:
+			v := C.value_list_get_gauge(cvl, i)
+			vl.Values = append(vl.Values, api.Gauge(v))
 		default:
 			Errorf("%s plugin: data source type %d is not supported", name, dsrc._type)
 			return -1

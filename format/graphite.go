@@ -76,7 +76,7 @@ func (g *Graphite) formatValue(v api.Value) (string, error) {
 
 // Write formats the ValueList in the PUTVAL format and writes it to the
 // assiciated io.Writer.
-func (g *Graphite) Write(vl api.ValueList) error {
+func (g *Graphite) Write(vl *api.ValueList) error {
 	for i, v := range vl.Values {
 		dsName := ""
 		if g.AlwaysAppendDS || len(vl.Values) != 1 {

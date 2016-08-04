@@ -19,7 +19,7 @@ func TestDerive(t *testing.T) {
 		d.Add(i)
 	}
 
-	want := api.ValueList{
+	want := &api.ValueList{
 		Identifier: api.Identifier{
 			Host:   "example.com",
 			Plugin: "golang",
@@ -48,7 +48,7 @@ func TestGauge(t *testing.T) {
 
 	g.Set(42.0)
 
-	want := api.ValueList{
+	want := &api.ValueList{
 		Identifier: api.Identifier{
 			Host:   "example.com",
 			Plugin: "golang",

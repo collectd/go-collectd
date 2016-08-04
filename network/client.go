@@ -49,7 +49,7 @@ func Dial(address string, opts ClientOptions) (*Client, error) {
 
 // Write adds a ValueList to the internal buffer. Data is only written to
 // the network when the buffer is full.
-func (c *Client) Write(vl api.ValueList) error {
+func (c *Client) Write(vl *api.ValueList) error {
 	if err := c.buffer.Write(vl); err != ErrNotEnoughSpace {
 		return err
 	}

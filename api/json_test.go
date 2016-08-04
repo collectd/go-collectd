@@ -52,7 +52,7 @@ func ExampleValueList_UnmarshalJSON() {
 			return
 		}
 
-		var vls []ValueList
+		var vls []*ValueList
 		if err := json.Unmarshal(data, &vls); err != nil {
 			log.Printf("while parsing JSON: %v", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)

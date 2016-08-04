@@ -90,7 +90,7 @@ func (srv *Server) ListenAndWrite() error {
 	}
 }
 
-func dispatch(valueLists []api.ValueList, d api.Writer) {
+func dispatch(valueLists []*api.ValueList, d api.Writer) {
 	for _, vl := range valueLists {
 		if err := d.Write(vl); err != nil {
 			log.Printf("error while dispatching: %v", err)

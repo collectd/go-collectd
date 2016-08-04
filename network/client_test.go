@@ -15,7 +15,7 @@ func ExampleClient() {
 	}
 	defer conn.Close()
 
-	vl := api.ValueList{
+	vl := &api.ValueList{
 		Identifier: api.Identifier{
 			Host:   "example.com",
 			Plugin: "golang",

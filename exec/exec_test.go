@@ -45,7 +45,7 @@ func Example() {
 	answer := func() api.Value {
 		return api.Gauge(42)
 	}
-	e.ValueCallback(answer, api.ValueList{
+	e.ValueCallback(answer, &api.ValueList{
 		Identifier: api.Identifier{
 			Host:         "example.com",
 			Plugin:       "golang",
@@ -57,7 +57,7 @@ func Example() {
 
 	// "complex" void callback
 	bicycles := func(interval time.Duration) {
-		vl := api.ValueList{
+		vl := &api.ValueList{
 			Identifier: api.Identifier{
 				Host:   "example.com",
 				Plugin: "golang",

@@ -190,7 +190,7 @@ if_octets	rx:DERIVE:0:U, tx:DERIVE:0:U
 
 	for _, c := range cases {
 		netBuf := NewBuffer(0)
-		inVL := api.ValueList{
+		inVL := &api.ValueList{
 			Identifier: api.Identifier{
 				Host:   "example.com",
 				Plugin: "golang",
@@ -212,7 +212,7 @@ if_octets	rx:DERIVE:0:U, tx:DERIVE:0:U
 
 		vls, err := Parse(wireBuf, ParseOpts{TypesDB: typesDB})
 		if err != nil {
-			t.Errorf("Parse(%#v) = (%v, %v), want (%v, %v)", c, vls, err, "[]api.ValueList", nil)
+			t.Errorf("Parse(%#v) = (%v, %v), want (%v, %v)", c, vls, err, "[]*api.ValueList", nil)
 			continue
 		}
 		if c.WantErr {

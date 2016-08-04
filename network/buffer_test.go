@@ -13,7 +13,7 @@ import (
 func TestWriteValueList(t *testing.T) {
 	b := NewBuffer(0)
 
-	vl := api.ValueList{
+	vl := &api.ValueList{
 		Identifier: api.Identifier{
 			Host:   "example.com",
 			Plugin: "golang",
@@ -30,7 +30,7 @@ func TestWriteValueList(t *testing.T) {
 	}
 
 	// ValueList with much the same fields, to test compression.
-	vl = api.ValueList{
+	vl = &api.ValueList{
 		Identifier: api.Identifier{
 			Host:           "example.com",
 			Plugin:         "golang",
@@ -154,7 +154,7 @@ type unknownType int
 func (v unknownType) Type() string { return "unknown" }
 
 func TestUnknownType(t *testing.T) {
-	vl := api.ValueList{
+	vl := &api.ValueList{
 		Identifier: api.Identifier{
 			Host:           "example.com",
 			Plugin:         "golang",

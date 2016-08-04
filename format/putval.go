@@ -25,7 +25,7 @@ func NewPutval(w io.Writer) *Putval {
 
 // Write formats the ValueList in the PUTVAL format and writes it to the
 // assiciated io.Writer.
-func (p *Putval) Write(vl api.ValueList) error {
+func (p *Putval) Write(vl *api.ValueList) error {
 	s, err := formatValues(vl)
 	if err != nil {
 		return err
@@ -36,7 +36,7 @@ func (p *Putval) Write(vl api.ValueList) error {
 	return err
 }
 
-func formatValues(vl api.ValueList) (string, error) {
+func formatValues(vl *api.ValueList) (string, error) {
 	fields := make([]string, 1+len(vl.Values))
 
 	fields[0] = formatTime(vl.Time)

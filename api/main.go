@@ -89,7 +89,7 @@ type ValueList struct {
 // DSName returns the name of the data source at the given index. If vl.DSNames
 // is nil, returns "value" if there is a single value and a string
 // representation of index otherwise.
-func (vl ValueList) DSName(index int) string {
+func (vl *ValueList) DSName(index int) string {
 	if vl.DSNames != nil {
 		return vl.DSNames[index]
 	} else if len(vl.Values) != 1 {
@@ -102,7 +102,7 @@ func (vl ValueList) DSName(index int) string {
 // Writer are objects accepting a ValueList for writing, for example to the
 // network.
 type Writer interface {
-	Write(vl ValueList) error
+	Write(vl *ValueList) error
 }
 
 // String returns a string representation of the Identifier.
@@ -137,7 +137,7 @@ func (d *Dispatcher) Len() int {
 // Write starts a new Goroutine for each Writer which creates a copy of the
 // ValueList and then calls the Writer with the copy. It returns nil
 // immediately.
-func (d *Dispatcher) Write(vl ValueList) error {
+func (d *Dispatcher) Write(vl *ValueList) error {
 	for _, w := range d.writers {
 		go func(w Writer) {
 			vlCopy := vl

@@ -18,7 +18,7 @@ var Putval = format.NewPutval(os.Stdout)
 
 type valueCallback struct {
 	callback func() api.Value
-	vl       api.ValueList
+	vl       *api.ValueList
 	done     chan bool
 }
 
@@ -49,7 +49,7 @@ func NewExecutor() *Executor {
 // ValueCallback adds a simple "value" callback to the Executor. The callback
 // only returns a Number, i.e. either a api.Gauge or api.Derive, and formatting
 // and printing is done by the executor.
-func (e *Executor) ValueCallback(callback func() api.Value, vl api.ValueList) {
+func (e *Executor) ValueCallback(callback func() api.Value, vl *api.ValueList) {
 	e.cb = append(e.cb, valueCallback{
 		callback: callback,
 		vl:       vl,

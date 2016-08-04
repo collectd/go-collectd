@@ -57,7 +57,7 @@ var (
 
 // Var is an abstract type for metrics exported by this package.
 type Var interface {
-	ValueList() api.ValueList
+	ValueList() *api.ValueList
 }
 
 // Publish adds v to the internal list of exported metrics.
@@ -145,10 +145,10 @@ func (d *Derive) String() string {
 
 // ValueList returns the ValueList representation of d. Both, Time and Interval
 // are set to zero.
-func (d *Derive) ValueList() api.ValueList {
+func (d *Derive) ValueList() *api.ValueList {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	return api.ValueList{
+	return &api.ValueList{
 		Identifier: d.id,
 		Values:     []api.Value{d.value},
 	}
@@ -202,10 +202,10 @@ func (g *Gauge) String() string {
 
 // ValueList returns the ValueList representation of g. Both, Time and Interval
 // are set to zero.
-func (g *Gauge) ValueList() api.ValueList {
+func (g *Gauge) ValueList() *api.ValueList {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return api.ValueList{
+	return &api.ValueList{
 		Identifier: g.id,
 		Values:     []api.Value{g.value},
 	}

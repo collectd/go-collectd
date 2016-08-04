@@ -43,6 +43,8 @@ func formatValues(vl api.ValueList) (string, error) {
 
 	for i, v := range vl.Values {
 		switch v := v.(type) {
+		case api.Counter:
+			fields[i+1] = fmt.Sprintf("%d", v)
 		case api.Gauge:
 			fields[i+1] = fmt.Sprintf("%.15g", v)
 		case api.Derive:

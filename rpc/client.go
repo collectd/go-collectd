@@ -16,6 +16,8 @@ type client struct {
 	client pb.CollectdClient
 }
 
+// Newclient returns a wrapper around the gRPC client connection that maps
+// between the Go interface and the gRPC interface.
 func NewClient(ctx context.Context, conn *grpc.ClientConn) Interface {
 	return &client{
 		ctx:    ctx,
@@ -23,6 +25,9 @@ func NewClient(ctx context.Context, conn *grpc.ClientConn) Interface {
 	}
 }
 
+// Query maps its arguments to a QueryValuesRequest object and calls
+// QueryValues. The response is parsed by a goroutine and written to the
+// returned channel.
 func (c *client) Query(ctx context.Context, id *api.Identifier) (<-chan *api.ValueList, error) {
 	stream, err := c.client.QueryValues(ctx, &pb.QueryValuesRequest{
 		Identifier: MarshalIdentifier(id),
@@ -59,6 +64,8 @@ func (c *client) Query(ctx context.Context, id *api.Identifier) (<-chan *api.Val
 	return ch, nil
 }
 
+// Write maps its arguments to a DispatchValuesRequest and calls
+// DispatchValues.
 func (c *client) Write(vl api.ValueList) error {
 	pbVL, err := MarshalValueList(&vl)
 	if err != nil {

@@ -2,46 +2,49 @@ package rpc // import "collectd.org/rpc"
 
 import (
 	"collectd.org/api"
-	"collectd.org/rpc/proto/types"
+	pb "collectd.org/rpc/proto/types"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
 
-func MarshalValue(v api.Value) (*types.Value, error) {
+// MarshalValue converts an api.Value to a pb.Value.
+func MarshalValue(v api.Value) (*pb.Value, error) {
 	switch v := v.(type) {
 	case api.Counter:
-		return &types.Value{
-			Value: &types.Value_Counter{Counter: uint64(v)},
+		return &pb.Value{
+			Value: &pb.Value_Counter{Counter: uint64(v)},
 		}, nil
 	case api.Derive:
-		return &types.Value{
-			Value: &types.Value_Derive{Derive: int64(v)},
+		return &pb.Value{
+			Value: &pb.Value_Derive{Derive: int64(v)},
 		}, nil
 	case api.Gauge:
-		return &types.Value{
-			Value: &types.Value_Gauge{Gauge: float64(v)},
+		return &pb.Value{
+			Value: &pb.Value_Gauge{Gauge: float64(v)},
 		}, nil
 	default:
 		return nil, grpc.Errorf(codes.InvalidArgument, "%T values are not supported", v)
 	}
 }
 
-func UnmarshalValue(in *types.Value) (api.Value, error) {
+// UnmarshalValue converts a pb.Value to an api.Value.
+func UnmarshalValue(in *pb.Value) (api.Value, error) {
 	switch pbValue := in.GetValue().(type) {
-	case *types.Value_Counter:
+	case *pb.Value_Counter:
 		return api.Counter(pbValue.Counter), nil
-	case *types.Value_Derive:
+	case *pb.Value_Derive:
 		return api.Derive(pbValue.Derive), nil
-	case *types.Value_Gauge:
+	case *pb.Value_Gauge:
 		return api.Gauge(pbValue.Gauge), nil
 	default:
 		return nil, grpc.Errorf(codes.Internal, "%T values are not supported", pbValue)
 	}
 }
 
-func MarshalIdentifier(id *api.Identifier) *types.Identifier {
-	return &types.Identifier{
+// MarshalIdentifier converts an api.Identifier to a pb.Identifier.
+func MarshalIdentifier(id *api.Identifier) *pb.Identifier {
+	return &pb.Identifier{
 		Host:           id.Host,
 		Plugin:         id.Plugin,
 		PluginInstance: id.PluginInstance,
@@ -50,7 +53,8 @@ func MarshalIdentifier(id *api.Identifier) *types.Identifier {
 	}
 }
 
-func UnmarshalIdentifier(in *types.Identifier) *api.Identifier {
+// UnmarshalValue converts a pb.Identifier to an api.Identifier.
+func UnmarshalIdentifier(in *pb.Identifier) *api.Identifier {
 	return &api.Identifier{
 		Host:           in.Host,
 		Plugin:         in.Plugin,
@@ -60,13 +64,14 @@ func UnmarshalIdentifier(in *types.Identifier) *api.Identifier {
 	}
 }
 
-func MarshalValueList(vl *api.ValueList) (*types.ValueList, error) {
+// MarshalValueList converts an api.ValueList to a pb.ValueList.
+func MarshalValueList(vl *api.ValueList) (*pb.ValueList, error) {
 	t, err := ptypes.TimestampProto(vl.Time)
 	if err != nil {
 		return nil, err
 	}
 
-	var pbValues []*types.Value
+	var pbValues []*pb.Value
 	for _, v := range vl.Values {
 		pbValue, err := MarshalValue(v)
 		if err != nil {
@@ -76,7 +81,7 @@ func MarshalValueList(vl *api.ValueList) (*types.ValueList, error) {
 		pbValues = append(pbValues, pbValue)
 	}
 
-	return &types.ValueList{
+	return &pb.ValueList{
 		Values:     pbValues,
 		Time:       t,
 		Interval:   ptypes.DurationProto(vl.Interval),
@@ -84,7 +89,8 @@ func MarshalValueList(vl *api.ValueList) (*types.ValueList, error) {
 	}, nil
 }
 
-func UnmarshalValueList(in *types.ValueList) (*api.ValueList, error) {
+// UnmarshalValue converts a pb.ValueList to an api.ValueList.
+func UnmarshalValueList(in *pb.ValueList) (*api.ValueList, error) {
 	t, err := ptypes.Timestamp(in.GetTime())
 	if err != nil {
 		return nil, err

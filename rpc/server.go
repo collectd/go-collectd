@@ -20,6 +20,8 @@ type server struct {
 	srv Interface
 }
 
+// DispatchValues reads ValueLists from stream and calls the Write()
+// implementation on each one.
 func (wrap *server) DispatchValues(stream pb.Collectd_DispatchValuesServer) error {
 	for {
 		req, err := stream.Recv()
@@ -44,6 +46,8 @@ func (wrap *server) DispatchValues(stream pb.Collectd_DispatchValuesServer) erro
 	return stream.SendAndClose(&pb.DispatchValuesResponse{})
 }
 
+// QueryValues calls the Query() implementation and streams all ValueLists from
+// the channel back to the client.
 func (wrap *server) QueryValues(req *pb.QueryValuesRequest, stream pb.Collectd_QueryValuesServer) error {
 	id := UnmarshalIdentifier(req.GetIdentifier())
 

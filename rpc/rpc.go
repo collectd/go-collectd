@@ -2,6 +2,7 @@ package rpc // import "collectd.org/rpc"
 
 import (
 	"io"
+	"log"
 
 	"collectd.org/api"
 	pb "collectd.org/rpc/proto"
@@ -12,43 +13,75 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-// CollectdServer is an idiomatic Go interface for proto.CollectdServer Use
-// RegisterCollectdServer() to hook an object, which implements this interface,
-// up to the gRPC server.
-type CollectdServer interface {
+// Interface is an idiomatic Go interface for the Collectd gRPC service.
+//
+// To implement a client, pass a client connection to NewClient() to get back
+// an object implementing this interface.
+//
+// To implement a server, use RegisterServer() to hook an object, which
+// implements Interface, up to a gRPC server.
+type Interface interface {
+	api.Writer
 	Query(context.Context, *api.Identifier) (<-chan *api.ValueList, error)
 }
 
-// RegisterCollectdServer registers the implementation srv with the gRPC instance s.
-func RegisterCollectdServer(s *grpc.Server, srv CollectdServer) {
-	pb.RegisterCollectdServer(s, &collectdWrapper{
+// RegisterServer registers the implementation srv with the gRPC instance s.
+func RegisterServer(s *grpc.Server, srv Interface) {
+	pb.RegisterCollectdServer(s, &server{
 		srv: srv,
 	})
 }
 
-type DispatchServer interface {
-	api.Writer
-}
-
-func RegisterDispatchServer(s *grpc.Server, srv DispatchServer) {
-	pb.RegisterDispatchServer(s, &dispatchWrapper{
-		srv: srv,
-	})
-}
-
-type dispatchClient struct {
+// client is a wrapper around pb.CollectdClient implementing Interface.
+type client struct {
 	ctx    context.Context
-	client pb.DispatchClient
+	client pb.CollectdClient
 }
 
-func NewDispatchClient(ctx context.Context, conn *grpc.ClientConn) api.Writer {
-	return &dispatchClient{
+func NewClient(ctx context.Context, conn *grpc.ClientConn) Interface {
+	return &client{
 		ctx:    ctx,
-		client: pb.NewDispatchClient(conn),
+		client: pb.NewCollectdClient(conn),
 	}
 }
 
-func (c *dispatchClient) Write(vl api.ValueList) error {
+func (c *client) Query(ctx context.Context, id *api.Identifier) (<-chan *api.ValueList, error) {
+	stream, err := c.client.QueryValues(ctx, &pb.QueryValuesRequest{
+		Identifier: MarshalIdentifier(id),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	ch := make(chan *api.ValueList)
+
+	go func() {
+		defer close(ch)
+
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Printf("error while receiving value lists: %v", err)
+				return
+			}
+
+			vl, err := UnmarshalValueList(res.GetValueList())
+			if err != nil {
+				log.Printf("received malformed response: %v", err)
+				continue
+			}
+
+			ch <- vl
+		}
+	}()
+
+	return ch, nil
+}
+
+func (c *client) Write(vl api.ValueList) error {
 	pbVL, err := MarshalValueList(&vl)
 	if err != nil {
 		return err
@@ -177,12 +210,12 @@ func UnmarshalValueList(in *types.ValueList) (*api.ValueList, error) {
 	}, nil
 }
 
-// dispatchWrapper implements pb.DispatchServer using srv.
-type dispatchWrapper struct {
-	srv DispatchServer
+// server implements pb.CollectdServer using srv.
+type server struct {
+	srv Interface
 }
 
-func (wrap *dispatchWrapper) DispatchValues(stream pb.Dispatch_DispatchValuesServer) error {
+func (wrap *server) DispatchValues(stream pb.Collectd_DispatchValuesServer) error {
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
@@ -206,12 +239,7 @@ func (wrap *dispatchWrapper) DispatchValues(stream pb.Dispatch_DispatchValuesSer
 	return stream.SendAndClose(&pb.DispatchValuesResponse{})
 }
 
-// collectdWrapper implements pb.CollectdServer using srv.
-type collectdWrapper struct {
-	srv CollectdServer
-}
-
-func (wrap *collectdWrapper) QueryValues(req *pb.QueryValuesRequest, stream pb.Collectd_QueryValuesServer) error {
+func (wrap *server) QueryValues(req *pb.QueryValuesRequest, stream pb.Collectd_QueryValuesServer) error {
 	id := UnmarshalIdentifier(req.GetIdentifier())
 
 	ch, err := wrap.srv.Query(stream.Context(), id)

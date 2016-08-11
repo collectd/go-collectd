@@ -32,7 +32,7 @@ type ParseOpts struct {
 // Parse parses the binary network format and returns a slice of ValueLists. If
 // a parse error is encountered, all ValueLists parsed to this point are
 // returned as well as the error. Unknown "parts" are silently ignored.
-func Parse(b []byte, opts ParseOpts) ([]api.ValueList, error) {
+func Parse(b []byte, opts ParseOpts) ([]*api.ValueList, error) {
 	return parse(b, None, opts)
 }
 
@@ -44,8 +44,8 @@ func readUint16(buf *bytes.Buffer) (uint16, error) {
 	return binary.BigEndian.Uint16(read), nil
 }
 
-func parse(b []byte, sl SecurityLevel, opts ParseOpts) ([]api.ValueList, error) {
-	var valueLists []api.ValueList
+func parse(b []byte, sl SecurityLevel, opts ParseOpts) ([]*api.ValueList, error) {
+	var valueLists []*api.ValueList
 
 	var state api.ValueList
 	buf := bytes.NewBuffer(b)
@@ -118,7 +118,7 @@ func parse(b []byte, sl SecurityLevel, opts ParseOpts) ([]api.ValueList, error) 
 			}
 
 			if opts.SecurityLevel <= sl {
-				valueLists = append(valueLists, vl)
+				valueLists = append(valueLists, &vl)
 			}
 
 		case typeSignSHA256:
@@ -235,7 +235,7 @@ func parseValues(b []byte) ([]api.Value, error) {
 	return values, nil
 }
 
-func parseSignSHA256(pkg, payload []byte, opts ParseOpts) ([]api.ValueList, error) {
+func parseSignSHA256(pkg, payload []byte, opts ParseOpts) ([]*api.ValueList, error) {
 	ok, err := verifySHA256(pkg, payload, opts.PasswordLookup)
 	if err != nil {
 		return nil, err
@@ -246,7 +246,7 @@ func parseSignSHA256(pkg, payload []byte, opts ParseOpts) ([]api.ValueList, erro
 	return parse(payload, Sign, opts)
 }
 
-func parseEncryptAES256(payload []byte, opts ParseOpts) ([]api.ValueList, error) {
+func parseEncryptAES256(payload []byte, opts ParseOpts) ([]*api.ValueList, error) {
 	plaintext, err := decryptAES256(payload, opts.PasswordLookup)
 	if err != nil {
 		return nil, errors.New("AES256 decryption failure")

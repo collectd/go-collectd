@@ -1,6 +1,7 @@
 package exec // import "collectd.org/exec"
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -45,7 +46,7 @@ func Example() {
 	answer := func() api.Value {
 		return api.Gauge(42)
 	}
-	e.ValueCallback(answer, api.ValueList{
+	e.ValueCallback(answer, &api.ValueList{
 		Identifier: api.Identifier{
 			Host:         "example.com",
 			Plugin:       "golang",
@@ -56,8 +57,8 @@ func Example() {
 	})
 
 	// "complex" void callback
-	bicycles := func(interval time.Duration) {
-		vl := api.ValueList{
+	bicycles := func(ctx context.Context, interval time.Duration) {
+		vl := &api.ValueList{
 			Identifier: api.Identifier{
 				Host:   "example.com",
 				Plugin: "golang",
@@ -77,11 +78,11 @@ func Example() {
 		for _, d := range data {
 			vl.Values[0] = d.Value
 			vl.Identifier.TypeInstance = d.TypeInstance
-			Putval.Write(vl)
+			Putval.Write(ctx, vl)
 		}
 	}
 	e.VoidCallback(bicycles, time.Second)
 
 	// blocks forever
-	e.Run()
+	e.Run(context.Background())
 }

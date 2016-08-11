@@ -40,6 +40,7 @@ Gauge.
 package export // import "collectd.org/export"
 
 import (
+	"context"
 	"expvar"
 	"log"
 	"math"
@@ -57,7 +58,7 @@ var (
 
 // Var is an abstract type for metrics exported by this package.
 type Var interface {
-	ValueList() api.ValueList
+	ValueList() *api.ValueList
 }
 
 // Publish adds v to the internal list of exported metrics.
@@ -75,7 +76,7 @@ type Options struct {
 
 // Run periodically calls the ValueList function of each Var, sets the Time and
 // Interval fields and passes it w.Write(). This function blocks indefinitely.
-func Run(w api.Writer, opts Options) error {
+func Run(ctx context.Context, w api.Writer, opts Options) error {
 	ticker := time.NewTicker(opts.Interval)
 
 	for {
@@ -86,7 +87,7 @@ func Run(w api.Writer, opts Options) error {
 				vl := v.ValueList()
 				vl.Time = time.Now()
 				vl.Interval = opts.Interval
-				if err := w.Write(vl); err != nil {
+				if err := w.Write(ctx, vl); err != nil {
 					mutex.RUnlock()
 					return err
 				}
@@ -145,10 +146,10 @@ func (d *Derive) String() string {
 
 // ValueList returns the ValueList representation of d. Both, Time and Interval
 // are set to zero.
-func (d *Derive) ValueList() api.ValueList {
+func (d *Derive) ValueList() *api.ValueList {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	return api.ValueList{
+	return &api.ValueList{
 		Identifier: d.id,
 		Values:     []api.Value{d.value},
 	}
@@ -202,10 +203,10 @@ func (g *Gauge) String() string {
 
 // ValueList returns the ValueList representation of g. Both, Time and Interval
 // are set to zero.
-func (g *Gauge) ValueList() api.ValueList {
+func (g *Gauge) ValueList() *api.ValueList {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return api.ValueList{
+	return &api.ValueList{
 		Identifier: g.id,
 		Values:     []api.Value{g.value},
 	}

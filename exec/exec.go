@@ -3,6 +3,7 @@
 package exec // import "collectd.org/exec"
 
 import (
+	"context"
 	"log"
 	"os"
 	"strconv"
@@ -18,18 +19,18 @@ var Putval = format.NewPutval(os.Stdout)
 
 type valueCallback struct {
 	callback func() api.Value
-	vl       api.ValueList
+	vl       *api.ValueList
 	done     chan bool
 }
 
 type voidCallback struct {
-	callback func(time.Duration)
+	callback func(context.Context, time.Duration)
 	interval time.Duration
 	done     chan bool
 }
 
 type callback interface {
-	run(*sync.WaitGroup)
+	run(context.Context, *sync.WaitGroup)
 	stop()
 }
 
@@ -49,7 +50,7 @@ func NewExecutor() *Executor {
 // ValueCallback adds a simple "value" callback to the Executor. The callback
 // only returns a Number, i.e. either a api.Gauge or api.Derive, and formatting
 // and printing is done by the executor.
-func (e *Executor) ValueCallback(callback func() api.Value, vl api.ValueList) {
+func (e *Executor) ValueCallback(callback func() api.Value, vl *api.ValueList) {
 	e.cb = append(e.cb, valueCallback{
 		callback: callback,
 		vl:       vl,
@@ -62,7 +63,7 @@ func (e *Executor) ValueCallback(callback func() api.Value, vl api.ValueList) {
 // callback needs to format and print the appropriate lines to "STDOUT".
 // However, this allows cases in which the number of values reported varies,
 // e.g. depending on the system the code is running on.
-func (e *Executor) VoidCallback(callback func(time.Duration), interval time.Duration) {
+func (e *Executor) VoidCallback(callback func(context.Context, time.Duration), interval time.Duration) {
 	e.cb = append(e.cb, voidCallback{
 		callback: callback,
 		interval: interval,
@@ -71,10 +72,10 @@ func (e *Executor) VoidCallback(callback func(time.Duration), interval time.Dura
 }
 
 // Run starts calling all callbacks periodically and blocks.
-func (e *Executor) Run() {
+func (e *Executor) Run(ctx context.Context) {
 	for _, cb := range e.cb {
 		e.group.Add(1)
-		go cb.run(&e.group)
+		go cb.run(ctx, &e.group)
 	}
 
 	e.group.Wait()
@@ -88,7 +89,7 @@ func (e *Executor) Stop() {
 	}
 }
 
-func (cb valueCallback) run(g *sync.WaitGroup) {
+func (cb valueCallback) run(ctx context.Context, g *sync.WaitGroup) {
 	if cb.vl.Host == "" {
 		cb.vl.Host = Hostname()
 	}
@@ -102,7 +103,7 @@ func (cb valueCallback) run(g *sync.WaitGroup) {
 		case _ = <-ticker.C:
 			cb.vl.Values[0] = cb.callback()
 			cb.vl.Time = time.Now()
-			Putval.Write(cb.vl)
+			Putval.Write(ctx, cb.vl)
 		case _ = <-cb.done:
 			g.Done()
 			return
@@ -114,13 +115,13 @@ func (cb valueCallback) stop() {
 	cb.done <- true
 }
 
-func (cb voidCallback) run(g *sync.WaitGroup) {
+func (cb voidCallback) run(ctx context.Context, g *sync.WaitGroup) {
 	ticker := time.NewTicker(sanitizeInterval(cb.interval))
 
 	for {
 		select {
 		case _ = <-ticker.C:
-			cb.callback(cb.interval)
+			cb.callback(ctx, cb.interval)
 		case _ = <-cb.done:
 			g.Done()
 			return

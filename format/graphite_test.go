@@ -2,6 +2,7 @@ package format
 
 import (
 	"bytes"
+	"context"
 	"testing"
 	"time"
 
@@ -9,13 +10,15 @@ import (
 )
 
 func TestWrite(t *testing.T) {
+	ctx := context.Background()
+
 	cases := []struct {
-		ValueList api.ValueList
+		ValueList *api.ValueList
 		Graphite  *Graphite
 		Want      string
 	}{
 		{ // case 0
-			ValueList: api.ValueList{
+			ValueList: &api.ValueList{
 				Identifier: api.Identifier{
 					Host:           "example.com",
 					Plugin:         "golang",
@@ -37,7 +40,7 @@ func TestWrite(t *testing.T) {
 			Want: "-->example_com<--.golang-example.gauge-answer.value 42 1426975989\r\n",
 		},
 		{ // case 1
-			ValueList: api.ValueList{
+			ValueList: &api.ValueList{
 				Identifier: api.Identifier{
 					Host:           "example.com",
 					Plugin:         "golang",
@@ -59,7 +62,7 @@ func TestWrite(t *testing.T) {
 			Want: "collectd.example@com.golang.example.gauge.answer 1337 1426975989\r\n",
 		},
 		{ // case 2
-			ValueList: api.ValueList{
+			ValueList: &api.ValueList{
 				Identifier: api.Identifier{
 					Host:   "example.com",
 					Plugin: "golang",
@@ -85,7 +88,7 @@ func TestWrite(t *testing.T) {
 		buf := &bytes.Buffer{}
 		c.Graphite.W = buf
 
-		if err := c.Graphite.Write(c.ValueList); err != nil {
+		if err := c.Graphite.Write(ctx, c.ValueList); err != nil {
 			t.Errorf("case %d: got %v, want %v", i, err, nil)
 		}
 

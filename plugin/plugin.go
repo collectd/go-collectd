@@ -23,7 +23,7 @@ example:
   type ExamplePlugin struct{}
 
   func (*ExamplePlugin) Read() error {
-	  vl := api.ValueList{
+	  vl := &api.ValueList{
 		  Identifier: api.Identifier{
 			  Host:   "example.com",
 			  Plugin: "goplug",
@@ -34,7 +34,7 @@ example:
 		  Values:   []api.Value{api.Gauge(42)},
 		  DSNames:  []string{"value"},
 	  }
-	  if err := plugin.Write(vl); err != nil {
+	  if err := plugin.Write(context.Background(), vl); err != nil {
 		  return err
 	  }
 
@@ -97,11 +97,16 @@ package plugin // import "collectd.org/plugin"
 import "C"
 
 import (
+	"context"
 	"fmt"
 	"unsafe"
 
 	"collectd.org/api"
 	"collectd.org/cdtime"
+)
+
+var (
+	ctx = context.Background()
 )
 
 // Reader defines the interface for read callbacks, i.e. Go functions that are
@@ -122,7 +127,7 @@ func strcpy(dst []C.char, src string) {
 	copy(dst, cStr)
 }
 
-func newValueListT(vl api.ValueList) (*C.value_list_t, error) {
+func newValueListT(vl *api.ValueList) (*C.value_list_t, error) {
 	ret := &C.value_list_t{}
 
 	strcpy(ret.host[:], vl.Host)
@@ -165,13 +170,13 @@ func NewWriter() api.Writer {
 }
 
 // Write implements the api.Writer interface for the collectd daemon.
-func (writer) Write(vl api.ValueList) error {
+func (writer) Write(_ context.Context, vl *api.ValueList) error {
 	return Write(vl)
 }
 
 // Write converts a ValueList and calls the plugin_dispatch_values() function
 // of the collectd daemon.
-func Write(vl api.ValueList) error {
+func Write(vl *api.ValueList) error {
 	vlt, err := newValueListT(vl)
 	if err != nil {
 		return err
@@ -270,7 +275,7 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 		return -1
 	}
 
-	vl := api.ValueList{
+	vl := &api.ValueList{
 		Identifier: api.Identifier{
 			Host:           C.GoString(&cvl.host[0]),
 			Plugin:         C.GoString(&cvl.plugin[0]),
@@ -303,7 +308,7 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 		vl.DSNames = append(vl.DSNames, C.GoString(&dsrc.name[0]))
 	}
 
-	if err := w.Write(vl); err != nil {
+	if err := w.Write(ctx, vl); err != nil {
 		Errorf("%s plugin: Write() failed: %v", name, err)
 		return -1
 	}

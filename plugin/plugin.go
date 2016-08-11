@@ -34,7 +34,7 @@ example:
 		  Values:   []api.Value{api.Gauge(42)},
 		  DSNames:  []string{"value"},
 	  }
-	  if err := plugin.Write(vl); err != nil {
+	  if err := plugin.Write(context.Background(), vl); err != nil {
 		  return err
 	  }
 
@@ -97,11 +97,16 @@ package plugin // import "collectd.org/plugin"
 import "C"
 
 import (
+	"context"
 	"fmt"
 	"unsafe"
 
 	"collectd.org/api"
 	"collectd.org/cdtime"
+)
+
+var (
+	ctx = context.Background()
 )
 
 // Reader defines the interface for read callbacks, i.e. Go functions that are
@@ -165,7 +170,7 @@ func NewWriter() api.Writer {
 }
 
 // Write implements the api.Writer interface for the collectd daemon.
-func (writer) Write(vl *api.ValueList) error {
+func (writer) Write(_ context.Context, vl *api.ValueList) error {
 	return Write(vl)
 }
 
@@ -303,7 +308,7 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 		vl.DSNames = append(vl.DSNames, C.GoString(&dsrc.name[0]))
 	}
 
-	if err := w.Write(vl); err != nil {
+	if err := w.Write(ctx, vl); err != nil {
 		Errorf("%s plugin: Write() failed: %v", name, err)
 		return -1
 	}

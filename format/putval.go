@@ -3,6 +3,7 @@
 package format // import "collectd.org/format"
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -25,7 +26,7 @@ func NewPutval(w io.Writer) *Putval {
 
 // Write formats the ValueList in the PUTVAL format and writes it to the
 // assiciated io.Writer.
-func (p *Putval) Write(vl *api.ValueList) error {
+func (p *Putval) Write(_ context.Context, vl *api.ValueList) error {
 	s, err := formatValues(vl)
 	if err != nil {
 		return err

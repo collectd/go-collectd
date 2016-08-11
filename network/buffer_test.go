@@ -2,6 +2,7 @@ package network // import "collectd.org/network"
 
 import (
 	"bytes"
+	"context"
 	"math"
 	"reflect"
 	"testing"
@@ -11,6 +12,7 @@ import (
 )
 
 func TestWriteValueList(t *testing.T) {
+	ctx := context.Background()
 	b := NewBuffer(0)
 
 	vl := &api.ValueList{
@@ -24,7 +26,7 @@ func TestWriteValueList(t *testing.T) {
 		Values:   []api.Value{api.Derive(1)},
 	}
 
-	if err := b.Write(vl); err != nil {
+	if err := b.Write(ctx, vl); err != nil {
 		t.Errorf("Write got %v, want nil", err)
 		return
 	}
@@ -42,7 +44,7 @@ func TestWriteValueList(t *testing.T) {
 		Values:   []api.Value{api.Derive(2)},
 	}
 
-	if err := b.Write(vl); err != nil {
+	if err := b.Write(ctx, vl); err != nil {
 		t.Errorf("Write got %v, want nil", err)
 		return
 	}
@@ -154,6 +156,7 @@ type unknownType int
 func (v unknownType) Type() string { return "unknown" }
 
 func TestUnknownType(t *testing.T) {
+	ctx := context.Background()
 	vl := &api.ValueList{
 		Identifier: api.Identifier{
 			Host:           "example.com",
@@ -167,7 +170,7 @@ func TestUnknownType(t *testing.T) {
 	}
 
 	s1 := NewBuffer(0)
-	if err := s1.Write(vl); err != ErrUnknownType {
+	if err := s1.Write(ctx, vl); err != ErrUnknownType {
 		t.Errorf("Buffer.Write(%v) = %v, want %v", vl, err, ErrUnknownType)
 	}
 

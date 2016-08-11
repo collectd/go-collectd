@@ -2,6 +2,7 @@ package network // import "collectd.org/network"
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
@@ -93,6 +94,8 @@ func TestRoundtrip(t *testing.T) {
 }
 
 func testRoundTrip(t *testing.T, file string) {
+	ctx := context.Background()
+
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		panic(err)
@@ -106,7 +109,7 @@ func testRoundTrip(t *testing.T, file string) {
 	}
 
 	b := NewBuffer(0)
-	if err := b.Write(vl[0]); err != nil {
+	if err := b.Write(ctx, vl[0]); err != nil {
 		panic(err)
 	}
 
@@ -124,6 +127,8 @@ func TestOneByte(t *testing.T) {
 }
 
 func TestParseOpts_TypesDB(t *testing.T) {
+	ctx := context.Background()
+
 	cases := []struct {
 		Type        string
 		Values      []api.Value
@@ -199,7 +204,7 @@ if_octets	rx:DERIVE:0:U, tx:DERIVE:0:U
 			Values: c.Values,
 		}
 
-		if err := netBuf.Write(inVL); err != nil {
+		if err := netBuf.Write(ctx, inVL); err != nil {
 			t.Errorf("Write(%#v): %v", inVL, err)
 			continue
 		}

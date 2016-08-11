@@ -61,7 +61,7 @@ func ExampleValueList_UnmarshalJSON() {
 
 		for _, vl := range vls {
 			var w Writer
-			w.Write(vl)
+			w.Write(r.Context(), vl)
 			// "w" is a placeholder to avoid cyclic dependencies.
 			// In real live, you'd do something like this here:
 			// exec.Putval.Write(vl)

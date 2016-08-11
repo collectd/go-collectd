@@ -1,6 +1,7 @@
 package network // import "collectd.org/network"
 
 import (
+	"context"
 	"log"
 	"net"
 	"os"
@@ -18,7 +19,7 @@ func ExampleServer_ListenAndWrite() {
 	}
 
 	// blocks
-	log.Fatal(srv.ListenAndWrite())
+	log.Fatal(srv.ListenAndWrite(context.Background()))
 }
 
 // This example demonstrates how to forward received IPv6 multicast traffic to
@@ -36,5 +37,5 @@ func ExampleListenAndWrite() {
 	defer client.Close()
 
 	// blocks
-	log.Fatal(ListenAndWrite(":"+DefaultService, client))
+	log.Fatal(ListenAndWrite(context.Background(), ":"+DefaultService, client))
 }

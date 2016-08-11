@@ -1,6 +1,7 @@
 package network // import "collectd.org/network"
 
 import (
+	"context"
 	"log"
 	"net"
 	"time"
@@ -9,6 +10,7 @@ import (
 )
 
 func ExampleClient() {
+	ctx := context.Background()
 	conn, err := Dial(net.JoinHostPort("example.com", DefaultService), ClientOptions{})
 	if err != nil {
 		log.Fatal(err)
@@ -26,7 +28,7 @@ func ExampleClient() {
 		Values:   []api.Value{api.Gauge(42.0)},
 	}
 
-	if err := conn.Write(vl); err != nil {
+	if err := conn.Write(ctx, vl); err != nil {
 		log.Fatal(err)
 	}
 }

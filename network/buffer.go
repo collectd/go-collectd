@@ -2,6 +2,7 @@ package network // import "collectd.org/network"
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -159,7 +160,7 @@ func (b *Buffer) WriteTo(w io.Writer) (int64, error) {
 // Write adds a ValueList to the buffer. Returns ErrNotEnoughSpace if not
 // enough space in the buffer is available to add this value list. In that
 // case, call Read() to empty the buffer and try again.
-func (b *Buffer) Write(vl *api.ValueList) error {
+func (b *Buffer) Write(_ context.Context, vl *api.ValueList) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 

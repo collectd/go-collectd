@@ -40,6 +40,7 @@ Gauge.
 package export // import "collectd.org/export"
 
 import (
+	"context"
 	"expvar"
 	"log"
 	"math"
@@ -75,7 +76,7 @@ type Options struct {
 
 // Run periodically calls the ValueList function of each Var, sets the Time and
 // Interval fields and passes it w.Write(). This function blocks indefinitely.
-func Run(w api.Writer, opts Options) error {
+func Run(ctx context.Context, w api.Writer, opts Options) error {
 	ticker := time.NewTicker(opts.Interval)
 
 	for {
@@ -86,7 +87,7 @@ func Run(w api.Writer, opts Options) error {
 				vl := v.ValueList()
 				vl.Time = time.Now()
 				vl.Interval = opts.Interval
-				if err := w.Write(vl); err != nil {
+				if err := w.Write(ctx, vl); err != nil {
 					mutex.RUnlock()
 					return err
 				}

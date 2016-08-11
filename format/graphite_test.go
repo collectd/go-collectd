@@ -2,6 +2,7 @@ package format
 
 import (
 	"bytes"
+	"context"
 	"testing"
 	"time"
 
@@ -9,6 +10,8 @@ import (
 )
 
 func TestWrite(t *testing.T) {
+	ctx := context.Background()
+
 	cases := []struct {
 		ValueList *api.ValueList
 		Graphite  *Graphite
@@ -85,7 +88,7 @@ func TestWrite(t *testing.T) {
 		buf := &bytes.Buffer{}
 		c.Graphite.W = buf
 
-		if err := c.Graphite.Write(c.ValueList); err != nil {
+		if err := c.Graphite.Write(ctx, c.ValueList); err != nil {
 			t.Errorf("case %d: got %v, want %v", i, err, nil)
 		}
 

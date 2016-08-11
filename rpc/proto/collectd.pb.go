@@ -39,6 +39,7 @@ const _ = proto1.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // The arguments to DispatchValues.
 type DispatchValuesRequest struct {
+	// value_list is the metric to be sent to the server.
 	ValueList *collectd_types.ValueList `protobuf:"bytes,1,opt,name=value_list,json=valueList" json:"value_list,omitempty"`
 }
 
@@ -118,10 +119,13 @@ const _ = grpc.SupportPackageIsVersion3
 // Client API for Collectd service
 
 type CollectdClient interface {
-	// Query a list of values available from collectd's value cache.
-	QueryValues(ctx context.Context, in *QueryValuesRequest, opts ...grpc.CallOption) (Collectd_QueryValuesClient, error)
-	// DispatchValues sends a stream of ValueLists to the server.
+	// DispatchValues reads the value lists from the DispatchValuesRequest stream.
+	// The gRPC server embedded into collectd will inject them into the system
+	// just like the network plugin.
 	DispatchValues(ctx context.Context, opts ...grpc.CallOption) (Collectd_DispatchValuesClient, error)
+	// QueryValues returns a stream of matching value lists from collectd's
+	// internal cache.
+	QueryValues(ctx context.Context, in *QueryValuesRequest, opts ...grpc.CallOption) (Collectd_QueryValuesClient, error)
 }
 
 type collectdClient struct {
@@ -132,40 +136,8 @@ func NewCollectdClient(cc *grpc.ClientConn) CollectdClient {
 	return &collectdClient{cc}
 }
 
-func (c *collectdClient) QueryValues(ctx context.Context, in *QueryValuesRequest, opts ...grpc.CallOption) (Collectd_QueryValuesClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Collectd_serviceDesc.Streams[0], c.cc, "/collectd.Collectd/QueryValues", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &collectdQueryValuesClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Collectd_QueryValuesClient interface {
-	Recv() (*QueryValuesResponse, error)
-	grpc.ClientStream
-}
-
-type collectdQueryValuesClient struct {
-	grpc.ClientStream
-}
-
-func (x *collectdQueryValuesClient) Recv() (*QueryValuesResponse, error) {
-	m := new(QueryValuesResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *collectdClient) DispatchValues(ctx context.Context, opts ...grpc.CallOption) (Collectd_DispatchValuesClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Collectd_serviceDesc.Streams[1], c.cc, "/collectd.Collectd/DispatchValues", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_Collectd_serviceDesc.Streams[0], c.cc, "/collectd.Collectd/DispatchValues", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -198,38 +170,52 @@ func (x *collectdDispatchValuesClient) CloseAndRecv() (*DispatchValuesResponse, 
 	return m, nil
 }
 
+func (c *collectdClient) QueryValues(ctx context.Context, in *QueryValuesRequest, opts ...grpc.CallOption) (Collectd_QueryValuesClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_Collectd_serviceDesc.Streams[1], c.cc, "/collectd.Collectd/QueryValues", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &collectdQueryValuesClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Collectd_QueryValuesClient interface {
+	Recv() (*QueryValuesResponse, error)
+	grpc.ClientStream
+}
+
+type collectdQueryValuesClient struct {
+	grpc.ClientStream
+}
+
+func (x *collectdQueryValuesClient) Recv() (*QueryValuesResponse, error) {
+	m := new(QueryValuesResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Server API for Collectd service
 
 type CollectdServer interface {
-	// Query a list of values available from collectd's value cache.
-	QueryValues(*QueryValuesRequest, Collectd_QueryValuesServer) error
-	// DispatchValues sends a stream of ValueLists to the server.
+	// DispatchValues reads the value lists from the DispatchValuesRequest stream.
+	// The gRPC server embedded into collectd will inject them into the system
+	// just like the network plugin.
 	DispatchValues(Collectd_DispatchValuesServer) error
+	// QueryValues returns a stream of matching value lists from collectd's
+	// internal cache.
+	QueryValues(*QueryValuesRequest, Collectd_QueryValuesServer) error
 }
 
 func RegisterCollectdServer(s *grpc.Server, srv CollectdServer) {
 	s.RegisterService(&_Collectd_serviceDesc, srv)
-}
-
-func _Collectd_QueryValues_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(QueryValuesRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(CollectdServer).QueryValues(m, &collectdQueryValuesServer{stream})
-}
-
-type Collectd_QueryValuesServer interface {
-	Send(*QueryValuesResponse) error
-	grpc.ServerStream
-}
-
-type collectdQueryValuesServer struct {
-	grpc.ServerStream
-}
-
-func (x *collectdQueryValuesServer) Send(m *QueryValuesResponse) error {
-	return x.ServerStream.SendMsg(m)
 }
 
 func _Collectd_DispatchValues_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -258,20 +244,41 @@ func (x *collectdDispatchValuesServer) Recv() (*DispatchValuesRequest, error) {
 	return m, nil
 }
 
+func _Collectd_QueryValues_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(QueryValuesRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(CollectdServer).QueryValues(m, &collectdQueryValuesServer{stream})
+}
+
+type Collectd_QueryValuesServer interface {
+	Send(*QueryValuesResponse) error
+	grpc.ServerStream
+}
+
+type collectdQueryValuesServer struct {
+	grpc.ServerStream
+}
+
+func (x *collectdQueryValuesServer) Send(m *QueryValuesResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 var _Collectd_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "collectd.Collectd",
 	HandlerType: (*CollectdServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "QueryValues",
-			Handler:       _Collectd_QueryValues_Handler,
-			ServerStreams: true,
-		},
-		{
 			StreamName:    "DispatchValues",
 			Handler:       _Collectd_DispatchValues_Handler,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "QueryValues",
+			Handler:       _Collectd_QueryValues_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: fileDescriptor0,
@@ -291,10 +298,10 @@ var fileDescriptor0 = []byte{
 	0x97, 0x50, 0x60, 0x69, 0x6a, 0x51, 0x25, 0xaa, 0x4d, 0x56, 0x5c, 0x5c, 0x99, 0x29, 0xa9, 0x79,
 	0x25, 0x99, 0x69, 0x99, 0xa9, 0x45, 0x50, 0x9b, 0xa4, 0xd0, 0x6d, 0xf2, 0x84, 0xab, 0x08, 0x42,
 	0x52, 0xad, 0xe4, 0xcf, 0x25, 0x8c, 0x62, 0x22, 0xc4, 0x22, 0xf2, 0x1d, 0x6f, 0xb4, 0x9e, 0x91,
-	0x8b, 0xc3, 0x19, 0xaa, 0x4e, 0xc8, 0x87, 0x8b, 0x1b, 0xc9, 0x74, 0x21, 0x19, 0x84, 0x09, 0x98,
-	0xde, 0x90, 0x92, 0xc5, 0x21, 0x0b, 0x71, 0x92, 0x01, 0xa3, 0x50, 0x28, 0x17, 0x1f, 0x6a, 0xb8,
-	0x08, 0xc9, 0x23, 0xb4, 0x60, 0x8d, 0x04, 0x29, 0x05, 0xdc, 0x0a, 0x20, 0xc6, 0x6a, 0x30, 0x3a,
-	0x49, 0x44, 0x89, 0xc1, 0x15, 0xe5, 0x17, 0xa5, 0xeb, 0x17, 0x15, 0x24, 0xeb, 0x83, 0xe3, 0x36,
-	0x89, 0x0d, 0x4c, 0x19, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x4a, 0xe5, 0x25, 0xe3, 0x0b, 0x02,
+	0x8b, 0xc3, 0x19, 0xaa, 0x4e, 0x28, 0x94, 0x8b, 0x0f, 0xd5, 0x27, 0x42, 0xf2, 0x08, 0x43, 0xb0,
+	0x06, 0x9b, 0x94, 0x02, 0x6e, 0x05, 0x10, 0xb7, 0x69, 0x30, 0x0a, 0xf9, 0x70, 0x71, 0x23, 0x39,
+	0x5a, 0x48, 0x06, 0xa1, 0x05, 0x33, 0x74, 0xa4, 0x64, 0x71, 0xc8, 0x42, 0x4c, 0x33, 0x60, 0x74,
+	0x92, 0x88, 0x12, 0x83, 0xab, 0xc8, 0x2f, 0x4a, 0xd7, 0x2f, 0x2a, 0x48, 0xd6, 0x07, 0xc7, 0x6d,
+	0x12, 0x1b, 0x98, 0x32, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0x2e, 0x5a, 0xf6, 0x75, 0x0b, 0x02,
 	0x00, 0x00,
 }

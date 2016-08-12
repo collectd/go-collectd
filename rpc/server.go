@@ -16,7 +16,8 @@ func RegisterServer(s *grpc.Server, srv Interface) {
 	})
 }
 
-// server implements pb.CollectdServer using srv.
+// Type server implements pb.CollectdServer using the Go implementation of
+// rpc.Interface.
 type server struct {
 	Interface
 }

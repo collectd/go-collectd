@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// client is a wrapper around pb.CollectdClient implementing Interface.
+// Type client implements rpc.Interface using a gRPC stub.
 type client struct {
 	pb.CollectdClient
 }

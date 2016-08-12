@@ -30,15 +30,15 @@ func MarshalValue(v api.Value) (*pb.Value, error) {
 
 // UnmarshalValue converts a pb.Value to an api.Value.
 func UnmarshalValue(in *pb.Value) (api.Value, error) {
-	switch pbValue := in.GetValue().(type) {
+	switch v := in.GetValue().(type) {
 	case *pb.Value_Counter:
-		return api.Counter(pbValue.Counter), nil
+		return api.Counter(v.Counter), nil
 	case *pb.Value_Derive:
-		return api.Derive(pbValue.Derive), nil
+		return api.Derive(v.Derive), nil
 	case *pb.Value_Gauge:
-		return api.Gauge(pbValue.Gauge), nil
+		return api.Gauge(v.Gauge), nil
 	default:
-		return nil, grpc.Errorf(codes.Internal, "%T values are not supported", pbValue)
+		return nil, grpc.Errorf(codes.InvalidArgument, "%T values are not supported", v)
 	}
 }
 

@@ -55,7 +55,12 @@ func (c *client) Query(ctx context.Context, id *api.Identifier) (<-chan *api.Val
 				continue
 			}
 
-			ch <- vl
+			select {
+			case ch <- vl:
+				continue
+			case <-stream.Context().Done():
+				break
+			}
 		}
 	}()
 

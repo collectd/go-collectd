@@ -34,7 +34,7 @@ func (c *client) Query(ctx context.Context, id *api.Identifier) (<-chan *api.Val
 		return nil, err
 	}
 
-	ch := make(chan *api.ValueList)
+	ch := make(chan *api.ValueList, 16)
 
 	go func() {
 		defer close(ch)

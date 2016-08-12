@@ -1,6 +1,7 @@
 package rpc // import "collectd.org/rpc"
 
 import (
+	"context"
 	"io"
 
 	pb "collectd.org/rpc/proto"
@@ -51,7 +52,10 @@ func (s *server) DispatchValues(stream pb.Collectd_DispatchValuesServer) error {
 func (s *server) QueryValues(req *pb.QueryValuesRequest, stream pb.Collectd_QueryValuesServer) error {
 	id := UnmarshalIdentifier(req.GetIdentifier())
 
-	ch, err := s.Query(stream.Context(), id)
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
+	ch, err := s.Query(ctx, id)
 	if err != nil {
 		return grpc.Errorf(codes.Internal, "Query(%v): %v", id, err)
 	}

@@ -11,18 +11,18 @@ import (
 // RegisterServer registers the implementation srv with the gRPC instance s.
 func RegisterServer(s *grpc.Server, srv Interface) {
 	pb.RegisterCollectdServer(s, &server{
-		srv: srv,
+		Interface: srv,
 	})
 }
 
 // server implements pb.CollectdServer using srv.
 type server struct {
-	srv Interface
+	Interface
 }
 
 // DispatchValues reads ValueLists from stream and calls the Write()
 // implementation on each one.
-func (wrap *server) DispatchValues(stream pb.Collectd_DispatchValuesServer) error {
+func (s *server) DispatchValues(stream pb.Collectd_DispatchValuesServer) error {
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
@@ -38,7 +38,7 @@ func (wrap *server) DispatchValues(stream pb.Collectd_DispatchValuesServer) erro
 		}
 
 		// TODO(octo): pass stream.Context() to srv.Write() once the interface allows that.
-		if err := wrap.srv.Write(*vl); err != nil {
+		if err := s.Write(*vl); err != nil {
 			return grpc.Errorf(codes.Internal, "Write(%v): %v", vl, err)
 		}
 	}
@@ -48,10 +48,10 @@ func (wrap *server) DispatchValues(stream pb.Collectd_DispatchValuesServer) erro
 
 // QueryValues calls the Query() implementation and streams all ValueLists from
 // the channel back to the client.
-func (wrap *server) QueryValues(req *pb.QueryValuesRequest, stream pb.Collectd_QueryValuesServer) error {
+func (s *server) QueryValues(req *pb.QueryValuesRequest, stream pb.Collectd_QueryValuesServer) error {
 	id := UnmarshalIdentifier(req.GetIdentifier())
 
-	ch, err := wrap.srv.Query(stream.Context(), id)
+	ch, err := s.Query(stream.Context(), id)
 	if err != nil {
 		return grpc.Errorf(codes.Internal, "Query(%v): %v", id, err)
 	}

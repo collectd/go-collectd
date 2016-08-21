@@ -1,12 +1,12 @@
 package rpc // import "collectd.org/rpc"
 
 import (
+	"context"
 	"io"
 	"log"
 
 	"collectd.org/api"
 	pb "collectd.org/rpc/proto"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 

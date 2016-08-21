@@ -67,8 +67,9 @@ Synopsis:
 package rpc // import "collectd.org/rpc"
 
 import (
+	"context"
+
 	"collectd.org/api"
-	"golang.org/x/net/context"
 )
 
 // Interface is an idiomatic Go interface for the Collectd gRPC service.

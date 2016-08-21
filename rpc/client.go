@@ -69,10 +69,8 @@ func (c *client) Query(ctx context.Context, id *api.Identifier) (<-chan *api.Val
 
 // Write maps its arguments to a DispatchValuesRequest and calls
 // DispatchValues.
-func (c *client) Write(vl api.ValueList) error {
-	ctx := context.TODO()
-
-	pbVL, err := MarshalValueList(&vl)
+func (c *client) Write(ctx context.Context, vl *api.ValueList) error {
+	pbVL, err := MarshalValueList(vl)
 	if err != nil {
 		return err
 	}

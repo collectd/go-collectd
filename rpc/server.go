@@ -39,8 +39,7 @@ func (s *server) DispatchValues(stream pb.Collectd_DispatchValuesServer) error {
 			return err
 		}
 
-		// TODO(octo): pass stream.Context() to srv.Write() once the interface allows that.
-		if err := s.Write(*vl); err != nil {
+		if err := s.Write(stream.Context(), vl); err != nil {
 			return grpc.Errorf(codes.Internal, "Write(%v): %v", vl, err)
 		}
 	}

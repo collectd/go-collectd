@@ -7,6 +7,7 @@ Utilities for using [collectd](https://collectd.org/) together with [Go](http://
     package main
     
     import (
+        "context"
         "time"
         
         "collectd.org/api"
@@ -24,7 +25,7 @@ Utilities for using [collectd](https://collectd.org/) together with [Go](http://
             Interval: exec.Interval(),
             Values:   []api.Value{api.Gauge(42)},
         }
-        exec.Putval.Write(vl)
+        exec.Putval.Write(context.Background(), vl)
     }
 
 # Description

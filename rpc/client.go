@@ -67,20 +67,19 @@ func (c *client) Query(ctx context.Context, id *api.Identifier) (<-chan *api.Val
 	return ch, nil
 }
 
-// Write maps its arguments to a DispatchValuesRequest and calls
-// DispatchValues.
+// Write maps its arguments to a PutValuesRequest and calls PutValues.
 func (c *client) Write(ctx context.Context, vl *api.ValueList) error {
 	pbVL, err := MarshalValueList(vl)
 	if err != nil {
 		return err
 	}
 
-	stream, err := c.DispatchValues(ctx)
+	stream, err := c.PutValues(ctx)
 	if err != nil {
 		return err
 	}
 
-	req := &pb.DispatchValuesRequest{
+	req := &pb.PutValuesRequest{
 		ValueList: pbVL,
 	}
 	if err := stream.Send(req); err != nil {

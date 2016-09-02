@@ -34,7 +34,7 @@ Synopsis:
   }
 
 Caveats: the api.Writer interface does not (yet) accept a Context argument,
-which is why the context for DispatchValues() calls is currently passed via the
+which is why the context for PutValues() calls is currently passed via the
 NewClient() constructor, which is not ideal.
 
 Server code

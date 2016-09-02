@@ -9,8 +9,8 @@ It is generated from these files:
 	collectd.proto
 
 It has these top-level messages:
-	DispatchValuesRequest
-	DispatchValuesResponse
+	PutValuesRequest
+	PutValuesResponse
 	QueryValuesRequest
 	QueryValuesResponse
 */
@@ -37,32 +37,32 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto1.ProtoPackageIsVersion2 // please upgrade the proto package
 
-// The arguments to DispatchValues.
-type DispatchValuesRequest struct {
+// The arguments to PutValues.
+type PutValuesRequest struct {
 	// value_list is the metric to be sent to the server.
 	ValueList *collectd_types.ValueList `protobuf:"bytes,1,opt,name=value_list,json=valueList" json:"value_list,omitempty"`
 }
 
-func (m *DispatchValuesRequest) Reset()                    { *m = DispatchValuesRequest{} }
-func (m *DispatchValuesRequest) String() string            { return proto1.CompactTextString(m) }
-func (*DispatchValuesRequest) ProtoMessage()               {}
-func (*DispatchValuesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (m *PutValuesRequest) Reset()                    { *m = PutValuesRequest{} }
+func (m *PutValuesRequest) String() string            { return proto1.CompactTextString(m) }
+func (*PutValuesRequest) ProtoMessage()               {}
+func (*PutValuesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-func (m *DispatchValuesRequest) GetValueList() *collectd_types.ValueList {
+func (m *PutValuesRequest) GetValueList() *collectd_types.ValueList {
 	if m != nil {
 		return m.ValueList
 	}
 	return nil
 }
 
-// The response from DispatchValues.
-type DispatchValuesResponse struct {
+// The response from PutValues.
+type PutValuesResponse struct {
 }
 
-func (m *DispatchValuesResponse) Reset()                    { *m = DispatchValuesResponse{} }
-func (m *DispatchValuesResponse) String() string            { return proto1.CompactTextString(m) }
-func (*DispatchValuesResponse) ProtoMessage()               {}
-func (*DispatchValuesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (m *PutValuesResponse) Reset()                    { *m = PutValuesResponse{} }
+func (m *PutValuesResponse) String() string            { return proto1.CompactTextString(m) }
+func (*PutValuesResponse) ProtoMessage()               {}
+func (*PutValuesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 // The arguments to QueryValues.
 type QueryValuesRequest struct {
@@ -102,8 +102,8 @@ func (m *QueryValuesResponse) GetValueList() *collectd_types.ValueList {
 }
 
 func init() {
-	proto1.RegisterType((*DispatchValuesRequest)(nil), "collectd.DispatchValuesRequest")
-	proto1.RegisterType((*DispatchValuesResponse)(nil), "collectd.DispatchValuesResponse")
+	proto1.RegisterType((*PutValuesRequest)(nil), "collectd.PutValuesRequest")
+	proto1.RegisterType((*PutValuesResponse)(nil), "collectd.PutValuesResponse")
 	proto1.RegisterType((*QueryValuesRequest)(nil), "collectd.QueryValuesRequest")
 	proto1.RegisterType((*QueryValuesResponse)(nil), "collectd.QueryValuesResponse")
 }
@@ -119,10 +119,10 @@ const _ = grpc.SupportPackageIsVersion3
 // Client API for Collectd service
 
 type CollectdClient interface {
-	// DispatchValues reads the value lists from the DispatchValuesRequest stream.
+	// PutValues reads the value lists from the PutValuesRequest stream.
 	// The gRPC server embedded into collectd will inject them into the system
 	// just like the network plugin.
-	DispatchValues(ctx context.Context, opts ...grpc.CallOption) (Collectd_DispatchValuesClient, error)
+	PutValues(ctx context.Context, opts ...grpc.CallOption) (Collectd_PutValuesClient, error)
 	// QueryValues returns a stream of matching value lists from collectd's
 	// internal cache.
 	QueryValues(ctx context.Context, in *QueryValuesRequest, opts ...grpc.CallOption) (Collectd_QueryValuesClient, error)
@@ -136,34 +136,34 @@ func NewCollectdClient(cc *grpc.ClientConn) CollectdClient {
 	return &collectdClient{cc}
 }
 
-func (c *collectdClient) DispatchValues(ctx context.Context, opts ...grpc.CallOption) (Collectd_DispatchValuesClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Collectd_serviceDesc.Streams[0], c.cc, "/collectd.Collectd/DispatchValues", opts...)
+func (c *collectdClient) PutValues(ctx context.Context, opts ...grpc.CallOption) (Collectd_PutValuesClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_Collectd_serviceDesc.Streams[0], c.cc, "/collectd.Collectd/PutValues", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &collectdDispatchValuesClient{stream}
+	x := &collectdPutValuesClient{stream}
 	return x, nil
 }
 
-type Collectd_DispatchValuesClient interface {
-	Send(*DispatchValuesRequest) error
-	CloseAndRecv() (*DispatchValuesResponse, error)
+type Collectd_PutValuesClient interface {
+	Send(*PutValuesRequest) error
+	CloseAndRecv() (*PutValuesResponse, error)
 	grpc.ClientStream
 }
 
-type collectdDispatchValuesClient struct {
+type collectdPutValuesClient struct {
 	grpc.ClientStream
 }
 
-func (x *collectdDispatchValuesClient) Send(m *DispatchValuesRequest) error {
+func (x *collectdPutValuesClient) Send(m *PutValuesRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *collectdDispatchValuesClient) CloseAndRecv() (*DispatchValuesResponse, error) {
+func (x *collectdPutValuesClient) CloseAndRecv() (*PutValuesResponse, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
-	m := new(DispatchValuesResponse)
+	m := new(PutValuesResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -205,10 +205,10 @@ func (x *collectdQueryValuesClient) Recv() (*QueryValuesResponse, error) {
 // Server API for Collectd service
 
 type CollectdServer interface {
-	// DispatchValues reads the value lists from the DispatchValuesRequest stream.
+	// PutValues reads the value lists from the PutValuesRequest stream.
 	// The gRPC server embedded into collectd will inject them into the system
 	// just like the network plugin.
-	DispatchValues(Collectd_DispatchValuesServer) error
+	PutValues(Collectd_PutValuesServer) error
 	// QueryValues returns a stream of matching value lists from collectd's
 	// internal cache.
 	QueryValues(*QueryValuesRequest, Collectd_QueryValuesServer) error
@@ -218,26 +218,26 @@ func RegisterCollectdServer(s *grpc.Server, srv CollectdServer) {
 	s.RegisterService(&_Collectd_serviceDesc, srv)
 }
 
-func _Collectd_DispatchValues_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(CollectdServer).DispatchValues(&collectdDispatchValuesServer{stream})
+func _Collectd_PutValues_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(CollectdServer).PutValues(&collectdPutValuesServer{stream})
 }
 
-type Collectd_DispatchValuesServer interface {
-	SendAndClose(*DispatchValuesResponse) error
-	Recv() (*DispatchValuesRequest, error)
+type Collectd_PutValuesServer interface {
+	SendAndClose(*PutValuesResponse) error
+	Recv() (*PutValuesRequest, error)
 	grpc.ServerStream
 }
 
-type collectdDispatchValuesServer struct {
+type collectdPutValuesServer struct {
 	grpc.ServerStream
 }
 
-func (x *collectdDispatchValuesServer) SendAndClose(m *DispatchValuesResponse) error {
+func (x *collectdPutValuesServer) SendAndClose(m *PutValuesResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *collectdDispatchValuesServer) Recv() (*DispatchValuesRequest, error) {
-	m := new(DispatchValuesRequest)
+func (x *collectdPutValuesServer) Recv() (*PutValuesRequest, error) {
+	m := new(PutValuesRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -271,8 +271,8 @@ var _Collectd_serviceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "DispatchValues",
-			Handler:       _Collectd_DispatchValues_Handler,
+			StreamName:    "PutValues",
+			Handler:       _Collectd_PutValues_Handler,
 			ClientStreams: true,
 		},
 		{
@@ -287,21 +287,20 @@ var _Collectd_serviceDesc = grpc.ServiceDesc{
 func init() { proto1.RegisterFile("collectd.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 242 bytes of a gzipped FileDescriptorProto
+	// 236 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xe2, 0x4b, 0xce, 0xcf, 0xc9,
 	0x49, 0x4d, 0x2e, 0x49, 0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x80, 0xf1, 0xa5, 0xb8,
-	0x4b, 0x2a, 0x0b, 0x52, 0x8b, 0x21, 0xc2, 0x4a, 0x81, 0x5c, 0xa2, 0x2e, 0x99, 0xc5, 0x05, 0x89,
-	0x25, 0xc9, 0x19, 0x61, 0x89, 0x39, 0xa5, 0xa9, 0xc5, 0x41, 0xa9, 0x85, 0x40, 0xb2, 0x44, 0xc8,
-	0x82, 0x8b, 0xab, 0x0c, 0x24, 0x10, 0x9f, 0x93, 0x59, 0x5c, 0x22, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1,
-	0x6d, 0x24, 0xa9, 0x07, 0x37, 0x14, 0x62, 0x06, 0x58, 0x8b, 0x0f, 0x50, 0x41, 0x10, 0x67, 0x19,
-	0x8c, 0xa9, 0x24, 0xc1, 0x25, 0x86, 0x6e, 0x64, 0x71, 0x41, 0x7e, 0x5e, 0x71, 0xaa, 0x52, 0x00,
-	0x97, 0x50, 0x60, 0x69, 0x6a, 0x51, 0x25, 0xaa, 0x4d, 0x56, 0x5c, 0x5c, 0x99, 0x29, 0xa9, 0x79,
-	0x25, 0x99, 0x69, 0x99, 0xa9, 0x45, 0x50, 0x9b, 0xa4, 0xd0, 0x6d, 0xf2, 0x84, 0xab, 0x08, 0x42,
-	0x52, 0xad, 0xe4, 0xcf, 0x25, 0x8c, 0x62, 0x22, 0xc4, 0x22, 0xf2, 0x1d, 0x6f, 0xb4, 0x9e, 0x91,
-	0x8b, 0xc3, 0x19, 0xaa, 0x4e, 0x28, 0x94, 0x8b, 0x0f, 0xd5, 0x27, 0x42, 0xf2, 0x08, 0x43, 0xb0,
-	0x06, 0x9b, 0x94, 0x02, 0x6e, 0x05, 0x10, 0xb7, 0x69, 0x30, 0x0a, 0xf9, 0x70, 0x71, 0x23, 0x39,
-	0x5a, 0x48, 0x06, 0xa1, 0x05, 0x33, 0x74, 0xa4, 0x64, 0x71, 0xc8, 0x42, 0x4c, 0x33, 0x60, 0x74,
-	0x92, 0x88, 0x12, 0x83, 0xab, 0xc8, 0x2f, 0x4a, 0xd7, 0x2f, 0x2a, 0x48, 0xd6, 0x07, 0xc7, 0x6d,
-	0x12, 0x1b, 0x98, 0x32, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0x2e, 0x5a, 0xf6, 0x75, 0x0b, 0x02,
-	0x00, 0x00,
+	0x4b, 0x2a, 0x0b, 0x52, 0x8b, 0x21, 0xc2, 0x4a, 0x3e, 0x5c, 0x02, 0x01, 0xa5, 0x25, 0x61, 0x89,
+	0x39, 0xa5, 0xa9, 0xc5, 0x41, 0xa9, 0x85, 0x40, 0xb2, 0x44, 0xc8, 0x82, 0x8b, 0xab, 0x0c, 0x24,
+	0x10, 0x9f, 0x93, 0x59, 0x5c, 0x22, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x6d, 0x24, 0xa9, 0x07, 0x37,
+	0x0f, 0xa2, 0x1d, 0xac, 0xc5, 0x07, 0xa8, 0x20, 0x88, 0xb3, 0x0c, 0xc6, 0x54, 0x12, 0xe6, 0x12,
+	0x44, 0x32, 0xad, 0xb8, 0x20, 0x3f, 0xaf, 0x38, 0x55, 0x29, 0x80, 0x4b, 0x28, 0xb0, 0x34, 0xb5,
+	0xa8, 0x12, 0xd5, 0x12, 0x2b, 0x2e, 0xae, 0xcc, 0x94, 0xd4, 0xbc, 0x92, 0xcc, 0xb4, 0xcc, 0xd4,
+	0x22, 0xa8, 0x25, 0x52, 0xe8, 0x96, 0x78, 0xc2, 0x55, 0x04, 0x21, 0xa9, 0x56, 0xf2, 0xe7, 0x12,
+	0x46, 0x31, 0x11, 0x62, 0x11, 0xf9, 0xee, 0x36, 0x5a, 0xc0, 0xc8, 0xc5, 0xe1, 0x0c, 0x55, 0x27,
+	0xe4, 0xc6, 0xc5, 0x09, 0xf7, 0x84, 0x10, 0x92, 0x93, 0xd0, 0xc3, 0x49, 0x4a, 0x1a, 0xab, 0x1c,
+	0xc4, 0x31, 0x1a, 0x8c, 0x42, 0x3e, 0x5c, 0xdc, 0x48, 0xae, 0x14, 0x92, 0x41, 0xa8, 0xc6, 0x0c,
+	0x0e, 0x29, 0x59, 0x1c, 0xb2, 0x10, 0xd3, 0x0c, 0x18, 0x9d, 0x24, 0xa2, 0xc4, 0xe0, 0x2a, 0xf2,
+	0x8b, 0xd2, 0xf5, 0x8b, 0x0a, 0x92, 0xf5, 0xc1, 0x51, 0x98, 0xc4, 0x06, 0xa6, 0x8c, 0x01, 0x01,
+	0x00, 0x00, 0xff, 0xff, 0xde, 0xc9, 0x28, 0x16, 0xf2, 0x01, 0x00, 0x00,
 }

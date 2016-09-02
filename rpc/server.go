@@ -22,9 +22,9 @@ type server struct {
 	Interface
 }
 
-// DispatchValues reads ValueLists from stream and calls the Write()
-// implementation on each one.
-func (s *server) DispatchValues(stream pb.Collectd_DispatchValuesServer) error {
+// PutValues reads ValueLists from stream and calls the Write() implementation
+// on each one.
+func (s *server) PutValues(stream pb.Collectd_PutValuesServer) error {
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
@@ -44,7 +44,7 @@ func (s *server) DispatchValues(stream pb.Collectd_DispatchValuesServer) error {
 		}
 	}
 
-	return stream.SendAndClose(&pb.DispatchValuesResponse{})
+	return stream.SendAndClose(&pb.PutValuesResponse{})
 }
 
 // QueryValues calls the Query() implementation and streams all ValueLists from

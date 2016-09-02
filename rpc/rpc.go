@@ -13,10 +13,10 @@ Synopsis:
 	  // handle error
   }
 
-  c := rpc.NewClient(context.Background(), conn)
+  c := rpc.NewClient(conn)
 
   // Send a ValueList to the server.
-  if err := c.Write(vl); err != nil {
+  if err := c.Write(context.Background(), vl); err != nil {
 	  // handle error
   }
 
@@ -33,10 +33,6 @@ Synopsis:
 	  // consume ValueList
   }
 
-Caveats: the api.Writer interface does not (yet) accept a Context argument,
-which is why the context for PutValues() calls is currently passed via the
-NewClient() constructor, which is not ideal.
-
 Server code
 
 Synopsis:
@@ -45,7 +41,7 @@ Synopsis:
 	  rpc.Interface
   }
 
-  func (s *myServer) Write(vl api.ValueList) error {
+  func (s *myServer) Write(ctx context.Context, vl *api.ValueList) error {
 	  // implementation
   }
 

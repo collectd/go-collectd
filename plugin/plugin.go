@@ -287,7 +287,8 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 		Interval: cdtime.Time(cvl.interval).Duration(),
 	}
 
-	for i := C.size_t(0); i < ds.ds_num; i++ {
+	// TODO: Remove 'size_t' cast on 'ds_num' upon 5.7 release.
+	for i := C.size_t(0); i < C.size_t(ds.ds_num); i++ {
 		dsrc := C.ds_dsrc(ds, i)
 
 		switch dsrc._type {

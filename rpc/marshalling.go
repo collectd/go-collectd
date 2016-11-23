@@ -53,7 +53,7 @@ func MarshalIdentifier(id *api.Identifier) *pb.Identifier {
 	}
 }
 
-// UnmarshalValue converts a pb.Identifier to an api.Identifier.
+// UnmarshalIdentifier converts a pb.Identifier to an api.Identifier.
 func UnmarshalIdentifier(in *pb.Identifier) *api.Identifier {
 	return &api.Identifier{
 		Host:           in.Host,
@@ -89,7 +89,7 @@ func MarshalValueList(vl *api.ValueList) (*pb.ValueList, error) {
 	}, nil
 }
 
-// UnmarshalValue converts a pb.ValueList to an api.ValueList.
+// UnmarshalValueList converts a pb.ValueList to an api.ValueList.
 func UnmarshalValueList(in *pb.ValueList) (*api.ValueList, error) {
 	t, err := ptypes.Timestamp(in.GetTime())
 	if err != nil {

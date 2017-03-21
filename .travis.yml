@@ -5,6 +5,10 @@ go:
   - 1.7
   - master
 
+env:
+  # The "plugin" package required the collectd sources, which are not (yet) available.
+  - CGO_ENABLED=0
+
 go_import_path: collectd.org
 
 matrix:
@@ -16,7 +20,7 @@ before_script:
 
 script:
   - go vet -x ./...
-  - CGO_ENABLED=0 go test -v ./...
+  - go test -v ./...
 
 # TODO(octo): run the fuzz test:
 # - go test -v -tags gofuzz ./...

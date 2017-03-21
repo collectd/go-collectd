@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"time"
 
 	"collectd.org/api"
 )
@@ -82,8 +83,24 @@ func (srv *Server) ListenAndWrite(ctx context.Context) error {
 	}
 
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			// fall-through
+		}
+
+		dl := time.Now().Add(100 * time.Millisecond)
+		if err := srv.Conn.SetReadDeadline(dl); err != nil {
+			return err
+		}
+
 		n, err := srv.Conn.Read(buf)
 		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				continue
+			}
+
 			return err
 		}
 

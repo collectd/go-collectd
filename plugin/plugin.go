@@ -333,14 +333,13 @@ var shutdownFuncs = make(map[string]Shutter)
 //export wrap_shutdown_callback
 func wrap_shutdown_callback() C.int {
 	if len(shutdownFuncs) <= 0 {
-		return -1
+		return 0
 	}
 	for n, s := range shutdownFuncs {
 		if err := s.Shutdown(); err != nil {
-			Errorf("The plugin named %s failed with error %v when called to shutdown", n, s)
+			Errorf("%s plugin: Shutdown() failed: %v", n, s)
 			return -1
 		}
-		break
 	}
 	return 0
 }
@@ -348,15 +347,18 @@ func wrap_shutdown_callback() C.int {
 // RegisterShutdown registers a shutdown function with the daemon which is called
 // when the plugin is required to shutdown gracefully.
 func RegisterShutdown(name string, s Shutter) error {
-	cName := C.CString(name)
-	cCallback := C.plugin_shutdown_cb(C.wrap_shutdown_callback)
+	// Only register a callback the first time one is implemented, subsequent
+	// callbacks get added to a list and called at the same time
+	if len(shutdownFuncs) <= 0 {
+		cName := C.CString(name)
+		cCallback := C.plugin_shutdown_cb(C.wrap_shutdown_callback)
 
-	status, err := C.register_shutdown_wrapper(cName, cCallback)
-	if err != nil {
-		Errorf("Received result %v when registering a shutdown callback", status)
-		return err
+		status, err := C.register_shutdown_wrapper(cName, cCallback)
+		if err != nil {
+			Errorf("register_shutdown_wrapper failed with status: %v", status)
+			return err
+		}
 	}
-	fmt.Printf("Registered shutdown function %v with name %v\n", s, name)
 	shutdownFuncs[name] = s
 	return nil
 }

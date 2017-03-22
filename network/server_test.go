@@ -5,6 +5,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
+	"testing"
+	"time"
 
 	"collectd.org/format"
 )
@@ -38,4 +41,30 @@ func ExampleListenAndWrite() {
 
 	// blocks
 	log.Fatal(ListenAndWrite(context.Background(), ":"+DefaultService, client))
+}
+
+func TestServer_Cancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+
+	var srvErr error
+	go func() {
+		srv := &Server{
+			Addr: "localhost:" + DefaultService,
+		}
+
+		srvErr = srv.ListenAndWrite(ctx)
+		wg.Done()
+	}()
+
+	// wait for a bit, then shut down the server
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+	wg.Wait()
+
+	if srvErr != context.Canceled {
+		t.Errorf("srvErr = %#v, want %#v", srvErr, context.Canceled)
+	}
 }

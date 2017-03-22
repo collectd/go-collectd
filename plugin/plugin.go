@@ -94,6 +94,9 @@ package plugin // import "collectd.org/plugin"
 //
 // int register_write_wrapper (char const *, plugin_write_cb, user_data_t *);
 // int wrap_write_callback(data_set_t *, value_list_t *, user_data_t *);
+//
+// int register_shutdown_wrapper (char *, plugin_shutdown_cb);
+// int wrap_shutdown_callback(void);
 import "C"
 
 import (
@@ -315,6 +318,49 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 	}
 
 	return 0
+}
+
+// First declare some types, interfaces, general functions
+
+// Shutters are objects that when called will shut down the plugin gracefully
+type Shutter interface {
+	Shutdown() error
+}
+
+// shutdownFuncs holds references to all shutdown callbacks
+var shutdownFuncs = make(map[string]Shutter)
+
+//export wrap_shutdown_callback
+func wrap_shutdown_callback() C.int {
+	if len(shutdownFuncs) <= 0 {
+		return 0
+	}
+	for n, s := range shutdownFuncs {
+		if err := s.Shutdown(); err != nil {
+			Errorf("%s plugin: Shutdown() failed: %v", n, s)
+			return -1
+		}
+	}
+	return 0
+}
+
+// RegisterShutdown registers a shutdown function with the daemon which is called
+// when the plugin is required to shutdown gracefully.
+func RegisterShutdown(name string, s Shutter) error {
+	// Only register a callback the first time one is implemented, subsequent
+	// callbacks get added to a list and called at the same time
+	if len(shutdownFuncs) <= 0 {
+		cName := C.CString(name)
+		cCallback := C.plugin_shutdown_cb(C.wrap_shutdown_callback)
+
+		status, err := C.register_shutdown_wrapper(cName, cCallback)
+		if err != nil {
+			Errorf("register_shutdown_wrapper failed with status: %v", status)
+			return err
+		}
+	}
+	shutdownFuncs[name] = s
+	return nil
 }
 
 //export module_register

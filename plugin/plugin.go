@@ -379,8 +379,8 @@ type Configuration interface {
 	Validate() error
 }
 
-var config_target *Configuration
-var config_targets map[string]*Configuration
+var config_target Configuration
+var config_targets map[string]Configuration
 
 var configured map[string]chan struct{}
 
@@ -418,11 +418,16 @@ func checkMatchable(oconfig *C.oconfig_item_t, target reflect.Value) error {
 		}
 		switch valType {
 		case C.int(0): //string
-			if target.Kind() != reflect.String {
+			// for comparison purposes treat slices the same as their element type
+			k := target.Kind()
+			if k == reflect.Slice {
+				k = target.Type().Elem().Kind()
+			}
+			if k != reflect.String {
 				return fmt.Errorf("found string, plugin expects %v", target.Kind().String())
 			}
 		case C.int(1): // number/double/float64
-			if target.Kind() != reflect.Float64 {
+			if !reflect.TypeOf(float64(0)).AssignableTo(target.Type()) {
 				return fmt.Errorf("found number, plugin expects %v", target.Kind().String())
 			}
 		case C.int(2): // boolean
@@ -437,53 +442,46 @@ func checkMatchable(oconfig *C.oconfig_item_t, target reflect.Value) error {
 }
 
 // checkUsable iterates over a provided reflect.Value and attempts to make sure
-// it A) contains only string, bool, or float64 fields, or slices or structs of
-// these, and B) contains only settable, exported fields
+// it A) contains only string, bool, int, int64, or float64 fields, or slices
+// or structs of these, and B) contains only settable, exported fields
 // Unfortunately as we start with a reflect.Value and no reflect.Type we can't
 // actually report the name of the failing field. Fortunately this should be a
 // plugin error only (not possible for a user to trigger) and resolved during
-// notmal testing.
+// normal testing.
 func checkUsable(target reflect.Value) error {
-	switch target.Kind().String() {
-	case "struct":
+	if target.Kind() == reflect.Struct {
 		for i := 0; i < target.NumField(); i++ {
 			err := checkUsable(target.Field(i))
 			if err != nil {
 				return fmt.Errorf("in struct: %v", err)
 			}
 		}
-	case "slice":
-		if target.CanSet() != true {
-			return fmt.Errorf("unsettable value (unexported field?)")
-		}
-		// Get an Interface of the slice, extract a field and get the field's type
-		switch reflect.TypeOf(target.Interface()).Elem().Kind() {
+		return nil
+	}
+	switch target.Kind() {
+	case reflect.Slice:
+		// Get the slice type, then the type of its elements, then reflect.Kind for matching
+		switch target.Type().Elem().Kind() {
 		case reflect.String:
+		case reflect.Int64:
+		case reflect.Int:
 		case reflect.Float64:
 		case reflect.Bool:
 		default:
-			return fmt.Errorf("unsupported variable type (slices must be of string, float64, or bool)")
+			return fmt.Errorf("unsupported variable type (slices must be of string, int, int64, float64, or bool)")
 		}
-	case "string":
-		if target.CanSet() != true {
-			return fmt.Errorf("unsettable value (unexported field?)")
-		}
-		return nil
-	case "float64":
-		if target.CanSet() != true {
-			return fmt.Errorf("unsettable value (unexported field?)")
-		}
-		return nil
-	case "bool":
-		if target.CanSet() != true {
-			return fmt.Errorf("unsettable value (unexported field?)")
-		}
-		return nil
+	case reflect.String:
+	case reflect.Int64:
+	case reflect.Int:
+	case reflect.Float64:
+	case reflect.Bool:
 	default:
-		fmt.Println(target.Kind().String())
-		return fmt.Errorf("unsupported variable type (must be string, float64, bool, or slice of these, or struct)")
+		return fmt.Errorf("unsupported variable type (must be string, int, int64, float64, bool, or slice of these, or struct)")
 	}
-	return nil // here to keep the compiler happy
+	if target.CanSet() != true {
+		return fmt.Errorf("unsettable value (unexported field?)")
+	}
+	return nil // No errors found
 }
 
 // assignValue copies a oconfig_value to a target Value using the appropriate function
@@ -496,7 +494,14 @@ func assignValue(oconfig_item *C.oconfig_item_t, target reflect.Value, index int
 	case C.int(0): //string
 		target.SetString(C.GoString(C.go_get_string_value(oconfig_item, C.int(index))))
 	case C.int(1): // number/double/float64
-		target.SetFloat(float64(C.go_get_number_value(oconfig_item, C.int(index))))
+		switch target.Kind() {
+		case reflect.Float64:
+			target.SetFloat(float64(C.go_get_number_value(oconfig_item, C.int(index))))
+		case reflect.Int:
+			target.SetInt(int64(C.go_get_number_value(oconfig_item, C.int(index))))
+		case reflect.Int64:
+			target.SetInt(int64(C.go_get_number_value(oconfig_item, C.int(index))))
+		}
 	case C.int(2): // boolean
 		target.SetBool(C.go_get_number_value(oconfig_item, C.int(index)) == 1)
 	default: // Unknown type
@@ -519,17 +524,21 @@ func assignSlice(oconfig_item *C.oconfig_item_t, target reflect.Value) error {
 // fields in the provided config_target. A lack of corresponding field is not an error, a
 // corresponding field of the wrong type is.
 func assignConfig(oconfig *C.oconfig_item_t, target reflect.Value, isRoot bool) error {
-	// root oconfig_item's value is the name of the plugin and unused here
+
+	// TODO: Properly implement this
+
+	// the root oconfig_item is processed slightly differently
 	if isRoot != true {
 		if err := checkMatchable(oconfig, target); err != nil {
 			return fmt.Errorf("unmatchable value (%v)", err)
 		}
+		if int(oconfig.values_num) > 1 { // multiple values
+			assignSlice(oconfig, target)
+		} else if oconfig.values_num == 1 { // single value
+			assignValue(oconfig, target, 0)
+		}
 	}
-	if int(oconfig.values_num) > 1 { // multiple values
-		assignSlice(oconfig, target)
-	} else if (oconfig.values_num == 1) && (isRoot == false) { // single value
-		assignValue(oconfig, target, 0)
-	} else if oconfig.children_num > 0 { // a container of oconfig children
+	if oconfig.children_num > 0 { // a container of oconfig children
 		for _, child := range getOconfigChildren(oconfig) {
 			childkey := C.GoString(child.key)
 			if target.FieldByName(childkey).IsValid() != true { // if there's no corresponding target field, skip it
@@ -553,12 +562,13 @@ func RequestConfiguration(name string, c Configuration) (chan struct{}, error) {
 		return nil, fmt.Errorf("plugin contains unusable configuration struct")
 	}
 	if len(config_targets) == 0 {
-		config_targets = make(map[string]*Configuration)
+		config_targets = make(map[string]Configuration)
 		configured = make(map[string]chan struct{})
 	}
-	config_targets[name] = &c
+	config_targets[name] = c
 	configured[name] = make(chan struct{})
 	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
 	cCallback := C.plugin_complex_config_cb(C.process_complex_config)
 	status, err := C.register_complex_config_wrapper(cName, cCallback)
 	if err != nil {
@@ -582,15 +592,13 @@ func process_complex_config(oconfig *C.oconfig_item_t) C.int {
 		fmt.Printf("Error: Received configuration for unknown plugin name %v\n", oname)
 		return C.int(1)
 	}
-	target := reflect.ValueOf(*config_target).Elem()
+	target := reflect.ValueOf(config_target).Elem()
 	err := assignConfig(oconfig, target, true)
 	if err != nil {
 		fmt.Printf("Error: Invalid configuration %v\n", err)
 		return C.int(1)
 	}
-	valArgs := make([]reflect.Value, 0)
-	valResp := target.MethodByName("Validate").Call(valArgs)
-	if err := valResp[0].Interface(); err != nil {
+	if err := config_target.Validate(); err != nil {
 		fmt.Printf("Error: Plugin-specific validation returned error: %v\n", err)
 		return C.int(1)
 	}

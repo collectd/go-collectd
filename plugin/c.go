@@ -142,4 +142,14 @@ package plugin // import "collectd.org/plugin"
 //   }
 //   return (*register_complex_config_ptr) (name, callback);
 // }
+//
+// int (*register_init_ptr) (char *, plugin_init_cb);
+// int register_init_wrapper (char *name, plugin_init_cb callback) {
+//   if (register_init_ptr == NULL) {
+//     void *hnd = dlopen(NULL, RTLD_LAZY);
+//     register_init_ptr = dlsym(hnd, "plugin_register_init");
+//     dlclose(hnd);
+//   }
+//   return (*register_init_ptr) (name, callback);
+// }
 import "C"

@@ -101,11 +101,16 @@ package plugin // import "collectd.org/plugin"
 // int wrap_shutdown_callback(void);
 //
 // int register_complex_config_wrapper (char *, plugin_complex_config_cb);
+// int validate_configs();
 // int process_complex_config(oconfig_item_t*);
+//
 // char *go_get_string_value(oconfig_item_t*, int);
 // double go_get_number_value(oconfig_item_t*, int);
 // int go_get_boolean_value(oconfig_item_t*, int);
 // int go_get_value_type(oconfig_item_t*, int);
+//
+// int register_init_wrapper (char *, plugin_init_cb);
+// int wrap_init_callback(void);
 import "C"
 
 import (
@@ -575,35 +580,92 @@ func RequestConfiguration(name string, c Configuration) (chan struct{}, error) {
 		Errorf("register_complex_config_wrapper failed with status %v", status)
 		return nil, err
 	}
+	cCallback2 := C.plugin_init_cb(C.validate_configs)
+	status, err = C.register_init_wrapper(cName, cCallback2)
+	if err != nil {
+		Errorf("register_init_wrapper failed with status %v", status)
+		return nil, err
+	}
 	return configured[name], nil
 }
 
+// validate_configs calls the Validate() function on each of the Configuration
+// structs and indicates the result to the daemon. It's added to the list of
+// initialisation functions whenever a configuration is requested.
+// If validation is successful for a given configuration the corresponding
+// channel is closed to indicate configuration is complete and loaded.
+//export validate_configs
+func validate_configs() C.int {
+	for n, config := range config_targets {
+		if err := config.Validate(); err != nil {
+			fmt.Printf("Error: plugin %v configuration failed to validate, will be unregistered\n", n)
+			return C.int(1)
+		}
+		close(configured[n])
+	}
+	return C.int(0)
+}
+
 // process_complex_config receives the plugin config from Collectd and attempts to
-// initialise the target config. If the configuration is parsed without fatal errors
-// it calls the attached Validate() function, which allows the plugin developer to
-// confirm that they've received sufficient valid configuration. If that succeeds
-// we finally close the Configured channel to indicate that the configuration is now
-// assigned and validated.
+// initialise the target config. Plugin-side validation and final confirmation
+// doesn't occur until the Init callback is received, indicating all configuration
+// has been loaded.
 //export process_complex_config
 func process_complex_config(oconfig *C.oconfig_item_t) C.int {
 	oname := C.GoString(C.go_get_string_value(oconfig, C.int(0)))
 	var ok bool
 	if config_target, ok = config_targets[oname]; !ok {
-		fmt.Printf("Error: Received configuration for unknown plugin name %v\n", oname)
+		Errorf("Error: Received configuration for unknown plugin name %v\n", oname)
 		return C.int(1)
 	}
 	target := reflect.ValueOf(config_target).Elem()
 	err := assignConfig(oconfig, target, true)
 	if err != nil {
-		fmt.Printf("Error: Invalid configuration %v\n", err)
+		Errorf("Error: Invalid configuration %v\n", err)
 		return C.int(1)
 	}
-	if err := config_target.Validate(); err != nil {
-		fmt.Printf("Error: Plugin-specific validation returned error: %v\n", err)
-		return C.int(1)
-	}
-	close(configured[oname])
 	return C.int(0)
+}
+
+// Initializers get the Init method called after configuration is read and before
+// the daemon commences read/write. If they retun a non-nil error value then
+// the plugin will be unregistered.
+// Initializers will be called sequentially in a random order.
+type Initializer func() error
+
+// initFuncs holds references to all Initializer callbacks
+var initFuncs = make(map[string]Initializer)
+
+//export wrap_init_callback
+func wrap_init_callback() C.int {
+	if len(initFuncs) > 0 {
+		for n, f := range initFuncs {
+			if err := f(); err != nil {
+				Errorf("%s plugin: Initialize() failed: %v", n, err)
+				return C.int(1)
+			}
+		}
+	}
+	return C.int(0)
+}
+
+// RegisterInitializer registers an initialization function with the daemon that
+// is called after configuration and before commencing read/write operation.
+func RegisterInitializer(name string, f Initializer) error {
+	// Only register a callback the first time one is implemented, subsequent
+	// callbacks get added to a list and called at the same time
+	if len(initFuncs) <= 0 {
+		cName := C.CString(name)
+		cCallback := C.plugin_init_cb(C.wrap_init_callback)
+
+		status, err := C.register_init_wrapper(cName, cCallback)
+		if err != nil {
+			Errorf("register_init_wrapper failed with status: %v", status)
+			return err
+		}
+	}
+	initFuncs[name] = f
+	return nil
 }
 
 //export module_register

@@ -2,7 +2,7 @@ package meta
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"math"
 	"reflect"
 	"testing"
@@ -18,10 +18,30 @@ func ExampleData() {
 	// Add string named "required":
 	m["required"] = String("towel")
 
-	// Read back a value:
-	answer, ok := m["answer"].Int64()
-	if !ok || answer != 42 {
-		fmt.Printf("m[%q] = (%d, %v), want (%d, %v)", "answer", answer, ok, 42, true)
+	// Read back a value where you expect a certain type:
+	if v, ok := m["answer"]; ok {
+		answer, ok := v.Int64()
+		if !ok {
+			log.Printf("answer is a %T, expected an Int64", v)
+		}
+		if answer != 42 {
+			log.Printf("answer is a %v, which is obviously wrong", answer)
+		}
+	}
+
+	// Read back a value where you don't know the type:
+	if v, ok := m["required"]; ok {
+		switch v := v.(type) {
+		case String:
+			// here, v is of type String. There are two ways to convert it
+			// to non-interface type:
+			//   * s := string(v)
+			//   * s, ok := v.String()
+			msg := "You need a " + string(v)
+			log.Print(msg)
+		default:
+			log.Printf("You need a %v, but I don't know what that is", v)
+		}
 	}
 }
 

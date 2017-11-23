@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"collectd.org/meta"
 	"go.uber.org/multierr"
 )
 
@@ -87,6 +88,7 @@ type ValueList struct {
 	Interval time.Duration
 	Values   []Value
 	DSNames  []string
+	Meta     meta.Data
 }
 
 // DSName returns the name of the data source at the given index. If vl.DSNames
@@ -118,6 +120,8 @@ func (vl *ValueList) Clone() *ValueList {
 
 	vlCopy.DSNames = make([]string, len(vl.DSNames))
 	copy(vlCopy.DSNames, vl.DSNames)
+
+	vlCopy.Meta = vl.Meta.Clone()
 
 	return &vlCopy
 }

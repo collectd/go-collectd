@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"collectd.org/meta"
 )
 
 func TestValueList(t *testing.T) {
@@ -21,9 +23,12 @@ func TestValueList(t *testing.T) {
 		Interval: 10 * time.Second,
 		Values:   []Value{Gauge(42)},
 		DSNames:  []string{"legacy"},
+		Meta: meta.Data{
+			"foo": meta.String("bar"),
+		},
 	}
 
-	want := `{"values":[42],"dstypes":["gauge"],"dsnames":["legacy"],"time":1426585562.999,"interval":10.000,"host":"example.com","plugin":"golang","type":"gauge"}`
+	want := `{"values":[42],"dstypes":["gauge"],"dsnames":["legacy"],"time":1426585562.999,"interval":10.000,"host":"example.com","plugin":"golang","type":"gauge","meta":{"foo":"bar"}}`
 
 	got, err := vlWant.MarshalJSON()
 	if err != nil || string(got) != want {

@@ -1,9 +1,9 @@
 language: go
 
 go:
-  - 1.8
-  - 1.7
-  - master
+  - "1.11"
+  - "1.10"
+  - "master"
 
 env:
   # The "plugin" package required the collectd sources, which are not (yet) available.
@@ -16,7 +16,7 @@ matrix:
     - go: master
 
 before_script:
-  - go get github.com/golang/lint/golint
+  - go get golang.org/x/lint/golint
 
 script:
   - go vet -x ./...

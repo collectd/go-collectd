@@ -97,6 +97,20 @@ package plugin // import "collectd.org/plugin"
 //
 // int register_shutdown_wrapper (char *, plugin_shutdown_cb);
 // int wrap_shutdown_callback(void);
+//
+// meta_data_t *meta_data_create_wrapper(void);
+// meta_data_t *meta_data_destroy_wrapper(meta_data_t *);
+//
+// int meta_data_add_string_wrapper(meta_data_t *md,
+//   const char *key, const char *value);
+// int meta_data_add_signed_int_wrapper(meta_data_t *md,
+//   const char *key, int64_t value);
+// int meta_data_add_unsigned_int_wrapper(meta_data_t *md,
+//   const char *key, uint64_t value);
+// int meta_data_add_double_wrapper(meta_data_t *md,
+//   const char *key, double value);
+// int meta_data_add_boolean_wrapper(meta_data_t *md,
+//   const char *key, _Bool value);
 import "C"
 
 import (
@@ -130,6 +144,32 @@ func strcpy(dst []C.char, src string) {
 	copy(dst, cStr)
 }
 
+func newMetaDataT(meta api.Metadata) (*C.meta_data_t, error) {
+	ret := C.meta_data_create_wrapper()
+
+	for key, value := range meta {
+		cKey := C.CString(key)
+
+		switch v := value.(type) {
+		case int64:
+			C.meta_data_add_signed_int_wrapper(ret, cKey, C.long(v))
+		case uint64:
+			C.meta_data_add_unsigned_int_wrapper(ret, cKey, C.ulong(v))
+		case float64:
+			C.meta_data_add_double_wrapper(ret, cKey, C.double(v))
+		case string:
+			C.meta_data_add_string_wrapper(ret, cKey, C.CString(v))
+		case bool:
+			C.meta_data_add_boolean_wrapper(ret, cKey, C._Bool(v))
+		default:
+			C.meta_data_destroy_wrapper(ret)
+			return nil, fmt.Errorf("not yet supported: %T", v)
+		}
+	}
+
+	return ret, nil
+}
+
 func newValueListT(vl *api.ValueList) (*C.value_list_t, error) {
 	ret := &C.value_list_t{}
 
@@ -140,6 +180,15 @@ func newValueListT(vl *api.ValueList) (*C.value_list_t, error) {
 	strcpy(ret.type_instance[:], vl.TypeInstance)
 	ret.interval = C.cdtime_t(cdtime.NewDuration(vl.Interval))
 	ret.time = C.cdtime_t(cdtime.New(vl.Time))
+
+	// metadata
+	if len(vl.Metadata) > 0 {
+		meta, err := newMetaDataT(vl.Metadata)
+		if err != nil {
+			return nil, fmt.Errorf("building metadata: %v", err)
+		}
+		ret.meta = meta
+	}
 
 	for _, v := range vl.Values {
 		switch v := v.(type) {
@@ -184,7 +233,12 @@ func Write(vl *api.ValueList) error {
 	if err != nil {
 		return err
 	}
-	defer C.free(unsafe.Pointer(vlt.values))
+	defer func() {
+		if vlt.meta != nil {
+			C.free(unsafe.Pointer(vlt.meta))
+		}
+		C.free(unsafe.Pointer(vlt.values))
+	}()
 
 	status, err := C.dispatch_values_wrapper(vlt)
 	if err != nil {

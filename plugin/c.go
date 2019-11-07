@@ -98,4 +98,84 @@ package plugin // import "collectd.org/plugin"
 //   return (*register_shutdown_ptr) (name, callback);
 //
 // }
+//
+// meta_data_t *(*meta_data_create_ptr) (void) = NULL;
+// meta_data_t *meta_data_create_wrapper(void) {
+//   if (meta_data_create_ptr == NULL) {
+//     void *hnd = dlopen(NULL, RTLD_LAZY);
+//     meta_data_create_ptr = dlsym(hnd, "meta_data_create");
+//     dlclose(hnd);
+//   }
+//   return (*meta_data_create_ptr)();
+// }
+//
+// meta_data_t *(*meta_data_destroy_ptr) (meta_data_t *meta) = NULL;
+// meta_data_t *meta_data_destroy_wrapper(meta_data_t *meta) {
+//   if (meta_data_destroy_ptr == NULL) {
+//     void *hnd = dlopen(NULL, RTLD_LAZY);
+//     meta_data_destroy_ptr = dlsym(hnd, "meta_data_destroy");
+//     dlclose(hnd);
+//   }
+//   return (*meta_data_destroy_ptr)(meta);
+// }
+//
+// int (*meta_data_add_string_ptr) (meta_data_t *md,
+//   const char *key, const char *value) = NULL;
+// int meta_data_add_string_wrapper(meta_data_t *md,
+//   const char *key, const char *value) {
+//     if (meta_data_add_string_ptr == NULL) {
+//       void *hnd = dlopen(NULL, RTLD_LAZY);
+//       meta_data_add_string_ptr = dlsym(hnd, "meta_data_add_string");
+//       dlclose(hnd);
+//     }
+//     return (*meta_data_add_string_ptr)(md, key, value);
+// }
+//
+// int (*meta_data_add_signed_int_ptr) (meta_data_t *md,
+//   const char *key, int64_t value) = NULL;
+// int meta_data_add_signed_int_wrapper(meta_data_t *md,
+//   const char *key, int64_t value) {
+//     if (meta_data_add_signed_int_ptr == NULL) {
+//       void *hnd = dlopen(NULL, RTLD_LAZY);
+//       meta_data_add_signed_int_ptr = dlsym(hnd, "meta_data_add_signed_int");
+//       dlclose(hnd);
+//     }
+//     return (*meta_data_add_signed_int_ptr)(md, key, value);
+// }
+//
+// int (*meta_data_add_unsigned_int_ptr) (meta_data_t *md,
+//   const char *key, uint64_t value) = NULL;
+// int meta_data_add_unsigned_int_wrapper(meta_data_t *md,
+//   const char *key, uint64_t value) {
+//     if (meta_data_add_unsigned_int_ptr == NULL) {
+//       void *hnd = dlopen(NULL, RTLD_LAZY);
+//       meta_data_add_unsigned_int_ptr = dlsym(hnd, "meta_data_add_unsigned_int");
+//       dlclose(hnd);
+//     }
+//     return (*meta_data_add_unsigned_int_ptr)(md, key, value);
+// }
+//
+// int (*meta_data_add_double_ptr) (meta_data_t *md,
+//   const char *key, double value) = NULL;
+// int meta_data_add_double_wrapper(meta_data_t *md,
+//   const char *key, double value) {
+//     if (meta_data_add_double_ptr == NULL) {
+//       void *hnd = dlopen(NULL, RTLD_LAZY);
+//       meta_data_add_double_ptr = dlsym(hnd, "meta_data_add_double");
+//       dlclose(hnd);
+//     }
+//     return (*meta_data_add_double_ptr)(md, key, value);
+// }
+//
+// int (*meta_data_add_boolean_ptr) (meta_data_t *md,
+//   const char *key, _Bool value) = NULL;
+// int meta_data_add_boolean_wrapper(meta_data_t *md,
+//   const char *key, _Bool value) {
+//     if (meta_data_add_boolean_ptr == NULL) {
+//       void *hnd = dlopen(NULL, RTLD_LAZY);
+//       meta_data_add_boolean_ptr = dlsym(hnd, "meta_data_add_boolean");
+//       dlclose(hnd);
+//     }
+//     return (*meta_data_add_boolean_ptr)(md, key, value);
+// }
 import "C"

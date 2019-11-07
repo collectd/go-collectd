@@ -85,6 +85,7 @@ type ValueList struct {
 	Interval time.Duration
 	Values   []Value
 	DSNames  []string
+	Metadata Metadata
 }
 
 // DSName returns the name of the data source at the given index. If vl.DSNames

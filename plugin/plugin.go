@@ -102,10 +102,15 @@ import "C"
 import (
 	"context"
 	"fmt"
+	"time"
 	"unsafe"
 
 	"collectd.org/api"
 	"collectd.org/cdtime"
+)
+
+const (
+	defaultReadCallbackGroup = "golang"
 )
 
 var (
@@ -200,10 +205,29 @@ func Write(vl *api.ValueList) error {
 // doesn't get any funny ideas.
 var readFuncs = make(map[string]Reader)
 
-// RegisterRead registers a new read function with the daemon which is called
-// periodically.
-func RegisterRead(name string, r Reader) error {
-	cGroup := C.CString("golang")
+// ComplexReadConfig represents the extra configuration settings available
+// in the RegisterComplexRead function
+// See C function `plugin_register_complex_read` for more informations
+type ComplexReadConfig struct {
+	// See C function `plugin_unregister_read_group` for more informations
+	// Defaults to defaultReadCallbackGroup
+	Group string
+
+	// Interval sets the interval in which to query the read plugin
+	Interval time.Duration
+}
+
+func registerComplexRead(name string, r Reader, config ComplexReadConfig) error {
+	interval := api.NewCollectdTimeTAsUInt64(config.Interval)
+
+	var group string
+	if config.Group == "" {
+		group = defaultReadCallbackGroup
+	} else {
+		group = config.Group
+	}
+
+	cGroup := C.CString(group)
 	defer C.free(unsafe.Pointer(cGroup))
 
 	cName := C.CString(name)
@@ -214,7 +238,7 @@ func RegisterRead(name string, r Reader) error {
 
 	status, err := C.register_read_wrapper(cGroup, cName,
 		C.plugin_read_cb(C.wrap_read_callback),
-		C.cdtime_t(0),
+		C.cdtime_t(interval),
 		&ud)
 	if err != nil {
 		return err
@@ -224,6 +248,23 @@ func RegisterRead(name string, r Reader) error {
 
 	readFuncs[name] = r
 	return nil
+}
+
+// RegisterRead registers a new read function with the daemon which is called
+// periodically.
+// It behaves like `RegisterComplexRead` with an empty ComplexReadConfig configuration
+func RegisterRead(name string, r Reader) error {
+	return registerComplexRead(name, r, ComplexReadConfig{})
+}
+
+// RegisterComplexRead registers a new read function with the daemon which is called
+// periodically.
+// It gives you more control that the simple `RegisterRead` function in the way that
+// you can specify the `Interval` between two calls to your function.
+// You can also specify a custom callback group name (`Group`)
+// See C function `plugin_register_complex_read` for more informations
+func RegisterComplexRead(name string, r Reader, config ComplexReadConfig) error {
+	return registerComplexRead(name, r, config)
 }
 
 //export wrap_read_callback

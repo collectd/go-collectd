@@ -35,8 +35,7 @@ package plugin // import "collectd.org/plugin"
 // }
 //
 // void value_list_add (value_list_t *vl, value_t v) {
-//   value_t *tmp;
-//   tmp = realloc (vl->values, (vl->values_len + 1));
+//   value_t *tmp = realloc (vl->values, sizeof(v) * (vl->values_len + 1));
 //   if (tmp == NULL) {
 //     errno = ENOMEM;
 //     return;

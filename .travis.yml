@@ -1,8 +1,8 @@
 language: go
 
 go:
-  - "1.11"
-  - "1.10"
+  - "stable"
+  # - "oldstable" # https://github.com/travis-ci/gimme/issues/179
   - "master"
 
 env:

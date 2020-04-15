@@ -323,7 +323,7 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 
 // First declare some types, interfaces, general functions
 
-// Shutters are objects that when called will shut down the plugin gracefully
+// Shutter is called to shut down the plugin gracefully.
 type Shutter interface {
 	Shutdown() error
 }
@@ -333,12 +333,9 @@ var shutdownFuncs = make(map[string]Shutter)
 
 //export wrap_shutdown_callback
 func wrap_shutdown_callback() C.int {
-	if len(shutdownFuncs) <= 0 {
-		return 0
-	}
-	for n, s := range shutdownFuncs {
-		if err := s.Shutdown(); err != nil {
-			Errorf("%s plugin: Shutdown() failed: %v", n, s)
+	for name, f := range shutdownFuncs {
+		if err := f.Shutdown(); err != nil {
+			Errorf("%s plugin: Shutdown() failed: %v", name, err)
 			return -1
 		}
 	}

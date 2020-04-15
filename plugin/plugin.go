@@ -14,35 +14,36 @@ example:
   package main
 
   import (
-	  "time"
+          "fmt"
+          "time"
 
-	  "collectd.org/api"
-	  "collectd.org/plugin"
+          "collectd.org/api"
+          "collectd.org/plugin"
   )
 
-  type ExamplePlugin struct{}
+  type examplePlugin struct{}
 
-  func (*ExamplePlugin) Read() error {
-	  vl := &api.ValueList{
-		  Identifier: api.Identifier{
-			  Host:   "example.com",
-			  Plugin: "goplug",
-			  Type:   "gauge",
-		  },
-		  Time:     time.Now(),
-		  Interval: 10 * time.Second,
-		  Values:   []api.Value{api.Gauge(42)},
-		  DSNames:  []string{"value"},
-	  }
-	  if err := plugin.Write(context.Background(), vl); err != nil {
-		  return err
-	  }
+  func (examplePlugin) Read() error {
+          vl := &api.ValueList{
+                  Identifier: api.Identifier{
+                          Host:   "example.com",
+                          Plugin: "goplug",
+                          Type:   "gauge",
+                  },
+                  Time:     time.Now(),
+                  Interval: 10 * time.Second,
+                  Values:   []api.Value{api.Gauge(42)},
+                  DSNames:  []string{"value"},
+          }
+          if err := plugin.Write(vl); err != nil {
+                  return fmt.Errorf("plugin.Write: %w", err)
+          }
 
-	  return nil
+          return nil
   }
 
   func init() {
-	  plugin.RegisterRead("example", &ExamplePlugin{})
+          plugin.RegisterRead("example", examplePlugin{})
   }
 
   func main() {} // ignored

@@ -146,15 +146,15 @@ func newValueListT(vl *api.ValueList) (*C.value_list_t, error) {
 		switch v := v.(type) {
 		case api.Counter:
 			if _, err := C.value_list_add_counter(ret, C.counter_t(v)); err != nil {
-				return nil, fmt.Errorf("value_list_add_counter: %v", err)
+				return nil, fmt.Errorf("value_list_add_counter: %w", err)
 			}
 		case api.Derive:
 			if _, err := C.value_list_add_derive(ret, C.derive_t(v)); err != nil {
-				return nil, fmt.Errorf("value_list_add_derive: %v", err)
+				return nil, fmt.Errorf("value_list_add_derive: %w", err)
 			}
 		case api.Gauge:
 			if _, err := C.value_list_add_gauge(ret, C.gauge_t(v)); err != nil {
-				return nil, fmt.Errorf("value_list_add_gauge: %v", err)
+				return nil, fmt.Errorf("value_list_add_gauge: %w", err)
 			}
 		default:
 			return nil, fmt.Errorf("not yet supported: %T", v)
@@ -189,8 +189,9 @@ func Write(vl *api.ValueList) error {
 
 	status, err := C.dispatch_values_wrapper(vlt)
 	if err != nil {
-		return err
-	} else if status != 0 {
+		return fmt.Errorf("dispatch_values failed: %w", err)
+	}
+	if status != 0 {
 		return fmt.Errorf("dispatch_values failed with status %d", status)
 	}
 
@@ -218,9 +219,10 @@ func RegisterRead(name string, r Reader) error {
 		C.cdtime_t(0),
 		&ud)
 	if err != nil {
-		return err
-	} else if status != 0 {
-		return fmt.Errorf("register_read_wrapper failed with status %d", status)
+		return fmt.Errorf("register_read failed: %w", err)
+	}
+	if status != 0 {
+		return fmt.Errorf("register_read failed with status %d", status)
 	}
 
 	readFuncs[name] = r
@@ -262,9 +264,10 @@ func RegisterWrite(name string, w api.Writer) error {
 
 	status, err := C.register_write_wrapper(cName, C.plugin_write_cb(C.wrap_write_callback), &ud)
 	if err != nil {
-		return err
-	} else if status != 0 {
-		return fmt.Errorf("register_write_wrapper failed with status %d", status)
+		return fmt.Errorf("register_write failed: %w", err)
+	}
+	if status != 0 {
+		return fmt.Errorf("register_write failed with status %d", status)
 	}
 
 	writeFuncs[name] = w

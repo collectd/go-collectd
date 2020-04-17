@@ -2,8 +2,9 @@
 
 ## About
 
-This is _experimental_ code to write _collectd_ plugins in Go. It requires Go
-1.5 or later and a recent version of the collectd sources to build.
+This is _experimental_ code to write _collectd_ plugins in Go. That means the
+API is not yet stable. It requires Go 1.13 or later and a recent version of the
+collectd sources to build.
 
 ## Build
 
@@ -24,14 +25,13 @@ package.
 
 ## Future
 
-Only *read* and *write* callbacks are currently supported. Based on these
-implementations it should be fairly straightforward to implement the remaining
-callbacks. The *init*, *shutdown*, *log*, *flush* and *missing* callbacks are
-all likely low-hanging fruit. The *notification* callback is a bit trickier
-because it requires implementing notifications in the `collectd.org/api` package
-and the (un)marshaling of `notification_t`. The (complex) *config* callback is
-arguably the most important but, unfortunately, also the most complex to
-implemented.
+Only *read*, *write*, and *shutdown* callbacks are currently supported. Based
+on these implementations it should be fairly straightforward to implement the
+remaining callbacks. The *init*, *log*, *flush* and *missing* callbacks are all
+likely low-hanging fruit. The *notification* callback is a bit trickier because
+it requires implementing notifications in the `collectd.org/api` package and
+the (un)marshaling of `notification_t`. The (complex) *config* callback is
+currently work in progress, see #30.
 
 If you're willing to give any of this a shot, please ping @octo to avoid
 duplicate work.

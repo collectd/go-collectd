@@ -226,6 +226,20 @@ func RegisterRead(name string, r Reader) error {
 	return nil
 }
 
+type key struct{}
+
+var nameKey key
+
+func withName(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, nameKey, name)
+}
+
+// Name returns the name of the plugin / callback.
+func Name(ctx context.Context) (string, bool) {
+	name, ok := ctx.Value(nameKey).(string)
+	return name, ok
+}
+
 //export wrap_read_callback
 func wrap_read_callback(ud *C.user_data_t) C.int {
 	name := C.GoString((*C.char)(ud.data))
@@ -234,7 +248,7 @@ func wrap_read_callback(ud *C.user_data_t) C.int {
 		return -1
 	}
 
-	ctx := context.Background()
+	ctx := withName(context.Background(), name)
 	if err := r.Read(ctx); err != nil {
 		Errorf("%s plugin: Read() failed: %v", name, err)
 		return -1
@@ -314,7 +328,7 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 		vl.DSNames = append(vl.DSNames, C.GoString(&dsrc.name[0]))
 	}
 
-	ctx := context.Background()
+	ctx := withName(context.Background(), name)
 	if err := w.Write(ctx, vl); err != nil {
 		Errorf("%s plugin: Write() failed: %v", name, err)
 		return -1
@@ -336,7 +350,7 @@ var shutdownFuncs = make(map[string]Shutter)
 //export wrap_shutdown_callback
 func wrap_shutdown_callback() C.int {
 	for name, f := range shutdownFuncs {
-		ctx := context.Background()
+		ctx := withName(context.Background(), name)
 		if err := f.Shutdown(ctx); err != nil {
 			Errorf("%s plugin: Shutdown() failed: %v", name, err)
 			return -1

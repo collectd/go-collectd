@@ -1,3 +1,5 @@
+# Request newer Ubuntu version. Xenial (current default) ships collectd 5.5, which is too old.
+dist: bionic
 language: go
 
 go:
@@ -5,9 +7,11 @@ go:
   # - "oldstable" # https://github.com/travis-ci/gimme/issues/179
   - "master"
 
+before_install:
+  - sudo apt-get -y install collectd-dev
+
 env:
-  # The "plugin" package required the collectd sources, which are not (yet) available.
-  - CGO_ENABLED=0
+  - CGO_ENABLED=1 CGO_CPPFLAGS="-I/usr/include/collectd/core/daemon -I/usr/include/collectd/core -I/usr/include/collectd"
 
 go_import_path: collectd.org
 

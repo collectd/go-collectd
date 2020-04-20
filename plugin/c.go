@@ -34,6 +34,16 @@ package plugin // import "collectd.org/plugin"
 //   return (*dispatch_values_ptr) (vl);
 // }
 //
+// static cdtime_t (*plugin_get_interval_ptr)(void);
+// cdtime_t plugin_get_interval_wrapper(void) {
+//   if (plugin_get_interval_ptr == NULL) {
+//     void *hnd = dlopen(NULL, RTLD_LAZY);
+//     plugin_get_interval_ptr = dlsym(hnd, "plugin_get_interval");
+//     dlclose(hnd);
+//   }
+//   return (*plugin_get_interval_ptr) ();
+// }
+//
 // void value_list_add (value_list_t *vl, value_t v) {
 //   value_t *tmp = realloc (vl->values, sizeof(v) * (vl->values_len + 1));
 //   if (tmp == NULL) {

@@ -164,17 +164,11 @@ func newValueListT(vl *api.ValueList) (*C.value_list_t, error) {
 	return ret, nil
 }
 
-// writer implements the api.Write interface.
-type writer struct{}
-
-// NewWriter returns an object implementing the api.Writer interface for the
-// collectd daemon.
-func NewWriter() api.Writer {
-	return writer{}
-}
+// Writer implements the api.Write interface.
+type Writer struct{}
 
 // Write implements the api.Writer interface for the collectd daemon.
-func (writer) Write(_ context.Context, vl *api.ValueList) error {
+func (Writer) Write(_ context.Context, vl *api.ValueList) error {
 	return Write(vl)
 }
 

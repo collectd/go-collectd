@@ -3,10 +3,25 @@ package plugin_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"collectd.org/plugin"
 	"collectd.org/plugin/fake"
 )
+
+func TestInterval(t *testing.T) {
+	fake.SetInterval(42 * time.Second)
+	defer fake.TearDown()
+
+	got, err := plugin.Interval()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if want := 42 * time.Second; got != want {
+		t.Errorf("Interval() = %v, want %v", got, want)
+	}
+}
 
 type testLogger struct {
 	Name string

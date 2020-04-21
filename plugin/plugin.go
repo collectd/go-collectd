@@ -78,6 +78,7 @@ package plugin // import "collectd.org/plugin"
 // #include "plugin.h"
 //
 // int dispatch_values_wrapper (value_list_t const *vl);
+// cdtime_t plugin_get_interval_wrapper(void);
 //
 // data_source_t *ds_dsrc(data_set_t const *ds, size_t i);
 //
@@ -107,6 +108,7 @@ import "C"
 import (
 	"context"
 	"fmt"
+	"time"
 	"unsafe"
 
 	"collectd.org/api"
@@ -258,6 +260,17 @@ func wrap_read_callback(ud *C.user_data_t) C.int {
 	}
 
 	return 0
+}
+
+// Interval returns the interval in which read callbacks are being called. May
+// only be called from within a read callback.
+func Interval() (time.Duration, error) {
+	ival, err := C.plugin_get_interval_wrapper()
+	if err != nil {
+		return 0, fmt.Errorf("plugin_get_interval() failed: %w", err)
+	}
+
+	return cdtime.Time(ival).Duration(), nil
 }
 
 // writeFuncs holds references to all write callbacks, so the garbage collector

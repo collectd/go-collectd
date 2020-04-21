@@ -24,17 +24,20 @@ import (
 	"unsafe"
 )
 
-type severity int
+// Severity is the severity of log messages. These are well-known constants
+// within collectd, so don't define your own. Use the constants provided by
+// this package instead.
+type Severity int
 
 const (
-	logErr     severity = 3
-	logWarning severity = 4
-	logNotice  severity = 5
-	logInfo    severity = 6
-	logDebug   severity = 7
+	SeverityError   Severity = 3
+	SeverityWarning Severity = 4
+	SeverityNotice  Severity = 5
+	SeverityInfo    Severity = 6
+	SeverityDebug   Severity = 7
 )
 
-func log(s severity, msg string) error {
+func log(s Severity, msg string) error {
 	ptr := C.CString(msg)
 	defer C.free(unsafe.Pointer(ptr))
 
@@ -45,7 +48,7 @@ func log(s severity, msg string) error {
 // Error logs an error using plugin_log(). Arguments are handled in the manner
 // of fmt.Print.
 func Error(v ...interface{}) error {
-	return log(logErr, fmt.Sprint(v...))
+	return log(SeverityError, fmt.Sprint(v...))
 }
 
 // Errorf logs an error using plugin_log(). Arguments are handled in the manner
@@ -57,7 +60,7 @@ func Errorf(format string, v ...interface{}) error {
 // Warning logs a warning using plugin_log(). Arguments are handled in the
 // manner of fmt.Print.
 func Warning(v ...interface{}) error {
-	return log(logWarning, fmt.Sprint(v...))
+	return log(SeverityWarning, fmt.Sprint(v...))
 }
 
 // Warningf logs a warning using plugin_log(). Arguments are handled in the
@@ -69,7 +72,7 @@ func Warningf(format string, v ...interface{}) error {
 // Notice logs a notice using plugin_log(). Arguments are handled in the manner
 // of fmt.Print.
 func Notice(v ...interface{}) error {
-	return log(logNotice, fmt.Sprint(v...))
+	return log(SeverityNotice, fmt.Sprint(v...))
 }
 
 // Noticef logs a notice using plugin_log(). Arguments are handled in the
@@ -81,7 +84,7 @@ func Noticef(format string, v ...interface{}) error {
 // Info logs a purely informal message using plugin_log(). Arguments are
 // handled in the manner of fmt.Print.
 func Info(v ...interface{}) error {
-	return log(logInfo, fmt.Sprint(v...))
+	return log(SeverityInfo, fmt.Sprint(v...))
 }
 
 // Infof logs a purely informal message using plugin_log(). Arguments are
@@ -93,7 +96,7 @@ func Infof(format string, v ...interface{}) error {
 // Debug logs a debugging message using plugin_log(). Arguments are handled in
 // the manner of fmt.Print.
 func Debug(v ...interface{}) error {
-	return log(logDebug, fmt.Sprint(v...))
+	return log(SeverityDebug, fmt.Sprint(v...))
 }
 
 // Debugf logs a debugging message using plugin_log(). Arguments are handled in

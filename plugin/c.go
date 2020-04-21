@@ -97,4 +97,14 @@ package plugin // import "collectd.org/plugin"
 //   return (*register_shutdown_ptr) (name, callback);
 //
 // }
+//
+// int (*register_log_ptr) (char const *, plugin_log_cb, user_data_t const *);
+// int register_log_wrapper (char const *name, plugin_log_cb callback, user_data_t const *user_data) {
+//   if (register_log_ptr == NULL) {
+//     void *hnd = dlopen(NULL, RTLD_LAZY);
+//     register_log_ptr = dlsym(hnd, "plugin_register_log");
+//     dlclose(hnd);
+//   }
+//   return (*register_log_ptr) (name, callback, user_data);
+// }
 import "C"

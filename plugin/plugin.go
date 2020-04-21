@@ -78,10 +78,6 @@ package plugin // import "collectd.org/plugin"
 // #include "plugin.h"
 //
 // int dispatch_values_wrapper (value_list_t const *vl);
-// int register_read_wrapper (char const *group, char const *name,
-//     plugin_read_cb callback,
-//     cdtime_t interval,
-//     user_data_t *ud);
 //
 // data_source_t *ds_dsrc(data_set_t const *ds, size_t i);
 //
@@ -92,6 +88,10 @@ package plugin // import "collectd.org/plugin"
 // derive_t  value_list_get_derive  (value_list_t *, size_t);
 // gauge_t   value_list_get_gauge   (value_list_t *, size_t);
 //
+// int register_read_wrapper (char const *group, char const *name,
+//     plugin_read_cb callback,
+//     cdtime_t interval,
+//     user_data_t *ud);
 // int wrap_read_callback(user_data_t *);
 //
 // int register_write_wrapper (char const *, plugin_write_cb, user_data_t *);
@@ -99,6 +99,9 @@ package plugin // import "collectd.org/plugin"
 //
 // int register_shutdown_wrapper (char *, plugin_shutdown_cb);
 // int wrap_shutdown_callback(void);
+//
+// int register_log_wrapper(char const *, plugin_log_cb, user_data_t const *);
+// int wrap_log_callback(int, char *, user_data_t *);
 import "C"
 
 import (
@@ -376,6 +379,48 @@ func RegisterShutdown(name string, s Shutter) error {
 	}
 	shutdownFuncs[name] = s
 	return nil
+}
+
+// Logger implements a logging callback.
+type Logger interface {
+	Log(context.Context, Severity, string)
+}
+
+// RegisterLog registers a logging function with the daemon which is called
+// whenever a log message is generated.
+func RegisterLog(name string, l Logger) error {
+	cName := C.CString(name)
+	ud := C.user_data_t{
+		data:      unsafe.Pointer(cName),
+		free_func: nil,
+	}
+
+	status, err := C.register_log_wrapper(cName, C.plugin_log_cb(C.wrap_log_callback), &ud)
+	if err != nil {
+		return fmt.Errorf("register_log failed: %w", err)
+	}
+	if status != 0 {
+		return fmt.Errorf("register_log failed with status %d", status)
+	}
+
+	logFuncs[name] = l
+	return nil
+}
+
+var logFuncs = make(map[string]Logger)
+
+//export wrap_log_callback
+func wrap_log_callback(sev C.int, msg *C.char, ud *C.user_data_t) C.int {
+	name := C.GoString((*C.char)(ud.data))
+	f, ok := logFuncs[name]
+	if !ok {
+		return -1
+	}
+
+	ctx := withName(context.Background(), name)
+	f.Log(ctx, Severity(sev), C.GoString(msg))
+
+	return 0
 }
 
 //export module_register

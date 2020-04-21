@@ -14,6 +14,7 @@ example:
   package main
 
   import (
+          "context"
           "fmt"
           "time"
 
@@ -23,7 +24,7 @@ example:
 
   type examplePlugin struct{}
 
-  func (examplePlugin) Read() error {
+  func (examplePlugin) Read(ctx context.Context) error {
           vl := &api.ValueList{
                   Identifier: api.Identifier{
                           Host:   "example.com",
@@ -35,7 +36,7 @@ example:
                   Values:   []api.Value{api.Gauge(42)},
                   DSNames:  []string{"value"},
           }
-          if err := plugin.Write(vl); err != nil {
+          if err := plugin.Write(ctx, vl); err != nil {
                   return fmt.Errorf("plugin.Write: %w", err)
           }
 
@@ -56,8 +57,8 @@ function in C based plugins.
 
 Then, define a type which implements the Reader interface by implementing the
 "Read() error" function. In the example above, this type is called
-ExamplePlugin. Create an instance of this type and pass it to RegisterRead() in
-the init() function.
+"examplePlugin". Create an instance of this type and pass it to RegisterRead()
+in the init() function.
 
 Build flags
 
@@ -109,14 +110,10 @@ import (
 	"collectd.org/cdtime"
 )
 
-var (
-	ctx = context.Background()
-)
-
 // Reader defines the interface for read callbacks, i.e. Go functions that are
 // called periodically from the collectd daemon.
 type Reader interface {
-	Read() error
+	Read(ctx context.Context) error
 }
 
 func strcpy(dst []C.char, src string) {
@@ -168,13 +165,19 @@ func newValueListT(vl *api.ValueList) (*C.value_list_t, error) {
 type Writer struct{}
 
 // Write implements the api.Writer interface for the collectd daemon.
-func (Writer) Write(_ context.Context, vl *api.ValueList) error {
-	return Write(vl)
+func (Writer) Write(ctx context.Context, vl *api.ValueList) error {
+	return Write(ctx, vl)
 }
 
 // Write converts a ValueList and calls the plugin_dispatch_values() function
 // of the collectd daemon.
-func Write(vl *api.ValueList) error {
+func Write(ctx context.Context, vl *api.ValueList) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
 	vlt, err := newValueListT(vl)
 	if err != nil {
 		return err
@@ -223,6 +226,20 @@ func RegisterRead(name string, r Reader) error {
 	return nil
 }
 
+type key struct{}
+
+var nameKey key
+
+func withName(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, nameKey, name)
+}
+
+// Name returns the name of the plugin / callback.
+func Name(ctx context.Context) (string, bool) {
+	name, ok := ctx.Value(nameKey).(string)
+	return name, ok
+}
+
 //export wrap_read_callback
 func wrap_read_callback(ud *C.user_data_t) C.int {
 	name := C.GoString((*C.char)(ud.data))
@@ -231,7 +248,8 @@ func wrap_read_callback(ud *C.user_data_t) C.int {
 		return -1
 	}
 
-	if err := r.Read(); err != nil {
+	ctx := withName(context.Background(), name)
+	if err := r.Read(ctx); err != nil {
 		Errorf("%s plugin: Read() failed: %v", name, err)
 		return -1
 	}
@@ -310,6 +328,7 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 		vl.DSNames = append(vl.DSNames, C.GoString(&dsrc.name[0]))
 	}
 
+	ctx := withName(context.Background(), name)
 	if err := w.Write(ctx, vl); err != nil {
 		Errorf("%s plugin: Write() failed: %v", name, err)
 		return -1
@@ -322,7 +341,7 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 
 // Shutter is called to shut down the plugin gracefully.
 type Shutter interface {
-	Shutdown() error
+	Shutdown(context.Context) error
 }
 
 // shutdownFuncs holds references to all shutdown callbacks
@@ -331,7 +350,8 @@ var shutdownFuncs = make(map[string]Shutter)
 //export wrap_shutdown_callback
 func wrap_shutdown_callback() C.int {
 	for name, f := range shutdownFuncs {
-		if err := f.Shutdown(); err != nil {
+		ctx := withName(context.Background(), name)
+		if err := f.Shutdown(ctx); err != nil {
 			Errorf("%s plugin: Shutdown() failed: %v", name, err)
 			return -1
 		}

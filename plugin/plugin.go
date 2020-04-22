@@ -365,29 +365,33 @@ var shutdownFuncs = make(map[string]Shutter)
 
 //export wrap_shutdown_callback
 func wrap_shutdown_callback() C.int {
+	ret := C.int(0)
 	for name, f := range shutdownFuncs {
 		ctx := withName(context.Background(), name)
 		if err := f.Shutdown(ctx); err != nil {
 			Errorf("%s plugin: Shutdown() failed: %v", name, err)
-			return -1
+			ret = -1
 		}
 	}
-	return 0
+	return ret
 }
 
 // RegisterShutdown registers a shutdown function with the daemon which is called
 // when the plugin is required to shutdown gracefully.
 func RegisterShutdown(name string, s Shutter) error {
 	// Only register a callback the first time one is implemented, subsequent
-	// callbacks get added to a list and called at the same time
+	// callbacks get added to a map and called sequentially from the same
+	// (C) callback.
 	if len(shutdownFuncs) <= 0 {
 		cName := C.CString(name)
-		cCallback := C.plugin_shutdown_cb(C.wrap_shutdown_callback)
+		defer C.free(unsafe.Pointer(cName))
 
-		status, err := C.register_shutdown_wrapper(cName, cCallback)
+		status, err := C.register_shutdown_wrapper(cName, C.plugin_shutdown_cb(C.wrap_shutdown_callback))
 		if err != nil {
-			Errorf("register_shutdown_wrapper failed with status: %v", status)
-			return err
+			return fmt.Errorf("register_shutdown failed: %w", err)
+		}
+		if status != 0 {
+			return fmt.Errorf("register_shutdown failed with status %d", status)
 		}
 	}
 	shutdownFuncs[name] = s

@@ -2,6 +2,7 @@ package plugin_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -162,5 +163,68 @@ type testWriter struct {
 
 func (w *testWriter) Write(ctx context.Context, vl *api.ValueList) error {
 	w.valueLists = append(w.valueLists, vl)
+	return nil
+}
+
+func TestShutdown(t *testing.T) {
+	s := &testShutter{
+		wantName: "TestShutdown",
+	}
+
+	if err := plugin.RegisterShutdown("TestShutdown", s); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fake.ShutdownAll(); err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := s.callCount, 1; got != want {
+		t.Errorf("testShutter.callCount = %d, want %d", got, want)
+	}
+}
+
+func TestShutdown_WithErrors(t *testing.T) {
+	shutters := []*testShutter{}
+	// This creates 20 shutdown functions: one will succeed, 19 will fail.
+	// We expect *all* shutdown functions to be called.
+	for i := 0; i < 20; i++ {
+		s := &testShutter{
+			wantName: "TestShutdown_WithErrors",
+		}
+		callbackName := "TestShutdown_WithErrors"
+		if i != 0 {
+			callbackName = fmt.Sprintf("failing_function_%d", i)
+		}
+
+		if err := plugin.RegisterShutdown(callbackName, s); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := fake.ShutdownAll(); err == nil {
+		t.Error("fake.ShutdownAll() succeeded, expected it to fail")
+	}
+
+	for _, s := range shutters {
+		if got, want := s.callCount, 1; got != want {
+			t.Errorf("testShutter.callCount = %d, want %d", got, want)
+		}
+	}
+}
+
+type testShutter struct {
+	wantName  string
+	callCount int
+}
+
+func (s *testShutter) Shutdown(ctx context.Context) error {
+	s.callCount++
+
+	gotName, ok := plugin.Name(ctx)
+	if !ok || gotName != s.wantName {
+		return fmt.Errorf("plugin.Name() = (%q, %v), want (%q, %v)", gotName, ok, s.wantName, true)
+	}
+
 	return nil
 }

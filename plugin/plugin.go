@@ -192,14 +192,7 @@ func Write(ctx context.Context, vl *api.ValueList) error {
 	defer C.free(unsafe.Pointer(vlt.values))
 
 	status, err := C.dispatch_values_wrapper(vlt)
-	if err != nil {
-		return fmt.Errorf("dispatch_values failed: %w", err)
-	}
-	if status != 0 {
-		return fmt.Errorf("dispatch_values failed with status %d", status)
-	}
-
-	return nil
+	return wrapCError(status, err, "dispatch_values")
 }
 
 // readFuncs holds references to all read callbacks, so the garbage collector
@@ -222,11 +215,8 @@ func RegisterRead(name string, r Reader) error {
 		C.plugin_read_cb(C.wrap_read_callback),
 		C.cdtime_t(0),
 		&ud)
-	if err != nil {
-		return fmt.Errorf("register_read failed: %w", err)
-	}
-	if status != 0 {
-		return fmt.Errorf("register_read failed with status %d", status)
+	if err := wrapCError(status, err, "register_read"); err != nil {
+		return err
 	}
 
 	readFuncs[name] = r
@@ -293,11 +283,8 @@ func RegisterWrite(name string, w api.Writer) error {
 	}
 
 	status, err := C.register_write_wrapper(cName, C.plugin_write_cb(C.wrap_write_callback), &ud)
-	if err != nil {
-		return fmt.Errorf("register_write failed: %w", err)
-	}
-	if status != 0 {
-		return fmt.Errorf("register_write failed with status %d", status)
+	if err := wrapCError(status, err, "register_write"); err != nil {
+		return err
 	}
 
 	writeFuncs[name] = w
@@ -389,11 +376,8 @@ func RegisterShutdown(name string, s Shutter) error {
 		defer C.free(unsafe.Pointer(cName))
 
 		status, err := C.register_shutdown_wrapper(cName, C.plugin_shutdown_cb(C.wrap_shutdown_callback))
-		if err != nil {
-			return fmt.Errorf("register_shutdown failed: %w", err)
-		}
-		if status != 0 {
-			return fmt.Errorf("register_shutdown failed with status %d", status)
+		if err := wrapCError(status, err, "register_shutdown"); err != nil {
+			return err
 		}
 	}
 	shutdownFuncs[name] = s
@@ -415,11 +399,8 @@ func RegisterLog(name string, l Logger) error {
 	}
 
 	status, err := C.register_log_wrapper(cName, C.plugin_log_cb(C.wrap_log_callback), &ud)
-	if err != nil {
-		return fmt.Errorf("register_log failed: %w", err)
-	}
-	if status != 0 {
-		return fmt.Errorf("register_log failed with status %d", status)
+	if err := wrapCError(status, err, "register_log"); err != nil {
+		return err
 	}
 
 	logFuncs[name] = l
@@ -440,6 +421,16 @@ func wrap_log_callback(sev C.int, msg *C.char, ud *C.user_data_t) C.int {
 	f.Log(ctx, Severity(sev), C.GoString(msg))
 
 	return 0
+}
+
+func wrapCError(status C.int, err error, name string) error {
+	if err != nil {
+		return fmt.Errorf("%s failed: %w", name, err)
+	}
+	if status != 0 {
+		return fmt.Errorf("%s failed with status %d", name, status)
+	}
+	return nil
 }
 
 //export module_register

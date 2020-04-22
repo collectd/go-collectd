@@ -2,6 +2,7 @@ package plugin_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -39,25 +40,52 @@ func (l *testLogger) Log(ctx context.Context, s plugin.Severity, msg string) {
 }
 
 func TestLog(t *testing.T) {
-	defer fake.TearDown()
-
-	l := &testLogger{}
-	if err := plugin.RegisterLog("TestLog", l); err != nil {
-		t.Fatal(err)
+	cases := []struct {
+		title    string
+		logFunc  func(v ...interface{}) error
+		fmtFunc  func(format string, v ...interface{}) error
+		severity plugin.Severity
+	}{
+		{"Error", plugin.Error, plugin.Errorf, plugin.SeverityError},
+		{"Warning", plugin.Warning, plugin.Warningf, plugin.SeverityWarning},
+		{"Notice", plugin.Notice, plugin.Noticef, plugin.SeverityNotice},
+		{"Info", plugin.Info, plugin.Infof, plugin.SeverityInfo},
+		{"Debug", plugin.Debug, plugin.Debugf, plugin.SeverityDebug},
 	}
 
-	plugin.Infof("test %d %%s", 42)
+	for _, tc := range cases {
+		t.Run(tc.title, func(t *testing.T) {
+			defer fake.TearDown()
 
-	if got, want := l.Severity, plugin.SeverityInfo; got != want {
-		t.Errorf("Severity = %v, want %v", got, want)
-	}
+			name := "TestLog_" + tc.title
+			l := &testLogger{}
+			if err := plugin.RegisterLog(name, l); err != nil {
+				t.Fatal(err)
+			}
 
-	if got, want := l.Message, "test 42 %s"; got != want {
-		t.Errorf("Message = %q, want %q", got, want)
-	}
+			tc.logFunc("test %d %%s", 42)
+			if got, want := l.Name, name; got != want {
+				t.Errorf("plugin.Name() = %q, want %q", got, want)
+			}
+			if got, want := l.Severity, tc.severity; got != want {
+				t.Errorf("Severity = %v, want %v", got, want)
+			}
+			if got, want := l.Message, "test %d %%s42"; got != want {
+				t.Errorf("Message = %q, want %q", got, want)
+			}
 
-	if got, want := l.Name, "TestLog"; got != want {
-		t.Errorf("plugin.Name() = %q, want %q", got, want)
+			*l = testLogger{}
+			tc.fmtFunc("test %d %%s", 42)
+			if got, want := l.Name, name; got != want {
+				t.Errorf("plugin.Name() = %q, want %q", got, want)
+			}
+			if got, want := l.Severity, tc.severity; got != want {
+				t.Errorf("Severity = %v, want %v", got, want)
+			}
+			if got, want := l.Message, "test 42 %s"; got != want {
+				t.Errorf("Message = %q, want %q", got, want)
+			}
+		})
 	}
 }
 
@@ -77,6 +105,8 @@ func TestReadWrite(t *testing.T) {
 	cases := []struct {
 		title    string
 		modifyVL func(*api.ValueList)
+		readErr  error
+		writeErr error
 		wantErr  bool
 	}{
 		{
@@ -97,11 +127,36 @@ func TestReadWrite(t *testing.T) {
 			},
 		},
 		{
-			title: "invalid type",
+			title: "marshaling error",
+			modifyVL: func(vl *api.ValueList) {
+				vl.Values = []api.Value{nil}
+			},
+			wantErr: true,
+		},
+		{
+			title: "read callback sets errno",
+			// The "plugin_dispatch_values()" implementation of the "fake" package only supports the types
+			// "derive", "gauge", and "counter". If another type is encountered, errno is set to EINVAL.
 			modifyVL: func(vl *api.ValueList) {
 				vl.Type = "invalid"
 			},
 			wantErr: true,
+		},
+		{
+			title:   "read callback returns error",
+			readErr: errors.New("read error"),
+			wantErr: true,
+		},
+		{
+			title: "read callback canceled context",
+			// Calling plugin.Write() with a canceled context results in an error.
+			readErr: context.Canceled,
+			wantErr: true,
+		},
+		{
+			title:    "write callback returns error",
+			writeErr: errors.New("write error"),
+			wantErr:  true,
 		},
 	}
 
@@ -115,13 +170,18 @@ func TestReadWrite(t *testing.T) {
 			}
 
 			r := &testReader{
-				vl: &vl,
+				vl:       &vl,
+				wantName: "TestRead",
+				wantErr:  tc.readErr,
 			}
 			if err := plugin.RegisterRead("TestRead", r); err != nil {
 				t.Fatal(err)
 			}
 
-			w := &testWriter{}
+			w := &testWriter{
+				wantName: "TestWrite",
+				wantErr:  tc.writeErr,
+			}
 			if err := plugin.RegisterWrite("TestWrite", w); err != nil {
 				t.Fatal(err)
 			}
@@ -149,50 +209,66 @@ func TestReadWrite(t *testing.T) {
 }
 
 type testReader struct {
-	vl *api.ValueList
+	vl       *api.ValueList
+	wantName string
+	wantErr  error
 }
 
 func (r *testReader) Read(ctx context.Context) error {
+	// Verify that plugin.Name() works inside Read callbacks.
+	gotName, ok := plugin.Name(ctx)
+	if !ok || gotName != r.wantName {
+		return fmt.Errorf("plugin.Name() = (%q, %v), want (%q, %v)", gotName, ok, r.wantName, true)
+	}
+
+	if errors.Is(r.wantErr, context.Canceled) {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithCancel(ctx)
+		cancel()
+		// continue with canceled context
+	} else if r.wantErr != nil {
+		return r.wantErr
+	}
+
 	w := plugin.Writer{}
 	return w.Write(ctx, r.vl)
 }
 
 type testWriter struct {
 	valueLists []*api.ValueList
+	wantName   string
+	wantErr    error
 }
 
 func (w *testWriter) Write(ctx context.Context, vl *api.ValueList) error {
+	// Verify that plugin.Name() works inside Write callbacks.
+	gotName, ok := plugin.Name(ctx)
+	if !ok || gotName != w.wantName {
+		return fmt.Errorf("plugin.Name() = (%q, %v), want (%q, %v)", gotName, ok, w.wantName, true)
+	}
+
+	if w.wantErr != nil {
+		return w.wantErr
+	}
+
 	w.valueLists = append(w.valueLists, vl)
 	return nil
 }
 
 func TestShutdown(t *testing.T) {
-	s := &testShutter{
-		wantName: "TestShutdown",
-	}
+	// NOTE: fake.TearDown() will remove all callbacks from the C code's state. plugin.shutdownFuncs will still hold
+	// a reference to the registered shutdown calls, preventing it from registering another C callback in later
+	// tests. Long story short, don't use shutdown callbacks in any other test.
+	defer fake.TearDown()
 
-	if err := plugin.RegisterShutdown("TestShutdown", s); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := fake.ShutdownAll(); err != nil {
-		t.Fatal(err)
-	}
-
-	if got, want := s.callCount, 1; got != want {
-		t.Errorf("testShutter.callCount = %d, want %d", got, want)
-	}
-}
-
-func TestShutdown_WithErrors(t *testing.T) {
 	shutters := []*testShutter{}
 	// This creates 20 shutdown functions: one will succeed, 19 will fail.
 	// We expect *all* shutdown functions to be called.
 	for i := 0; i < 20; i++ {
 		s := &testShutter{
-			wantName: "TestShutdown_WithErrors",
+			wantName: "TestShutdown",
 		}
-		callbackName := "TestShutdown_WithErrors"
+		callbackName := "TestShutdown"
 		if i != 0 {
 			callbackName = fmt.Sprintf("failing_function_%d", i)
 		}
@@ -221,6 +297,7 @@ type testShutter struct {
 func (s *testShutter) Shutdown(ctx context.Context) error {
 	s.callCount++
 
+	// Verify that plugin.Name() works inside Shutdown callbacks.
 	gotName, ok := plugin.Name(ctx)
 	if !ok || gotName != s.wantName {
 		return fmt.Errorf("plugin.Name() = (%q, %v), want (%q, %v)", gotName, ok, s.wantName, true)

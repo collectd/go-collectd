@@ -50,7 +50,7 @@ func (srv *Server) ListenAndWrite(ctx context.Context) error {
 			addr = ":" + DefaultService
 		}
 
-		laddr, err := net.ResolveUDPAddr("udp", srv.Addr)
+		laddr, err := net.ResolveUDPAddr("udp", addr)
 		if err != nil {
 			return err
 		}

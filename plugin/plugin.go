@@ -103,6 +103,8 @@ package plugin // import "collectd.org/plugin"
 //
 // int register_log_wrapper(char const *, plugin_log_cb, user_data_t const *);
 // int wrap_log_callback(int, char *, user_data_t *);
+//
+// typedef void (*free_func_t)(void *);
 import "C"
 
 import (
@@ -213,7 +215,7 @@ func RegisterRead(name string, r Reader) error {
 	cName := C.CString(name)
 	ud := C.user_data_t{
 		data:      unsafe.Pointer(cName),
-		free_func: nil,
+		free_func: C.free_func_t(C.free),
 	}
 
 	status, err := C.register_read_wrapper(cGroup, cName,
@@ -287,7 +289,7 @@ func RegisterWrite(name string, w api.Writer) error {
 	cName := C.CString(name)
 	ud := C.user_data_t{
 		data:      unsafe.Pointer(cName),
-		free_func: nil,
+		free_func: C.free_func_t(C.free),
 	}
 
 	status, err := C.register_write_wrapper(cName, C.plugin_write_cb(C.wrap_write_callback), &ud)
@@ -405,7 +407,7 @@ func RegisterLog(name string, l Logger) error {
 	cName := C.CString(name)
 	ud := C.user_data_t{
 		data:      unsafe.Pointer(cName),
-		free_func: nil,
+		free_func: C.free_func_t(C.free),
 	}
 
 	status, err := C.register_log_wrapper(cName, C.plugin_log_cb(C.wrap_log_callback), &ud)

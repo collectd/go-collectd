@@ -55,6 +55,14 @@ package fake
 // }
 //
 // void reset_read(void) {
+//   for (size_t i = 0; i < read_callbacks_num; i++) {
+//     user_data_t *ud = &read_callbacks[i].user_data;
+//     if (ud->free_func == NULL) {
+//       continue;
+//     }
+//     ud->free_func(ud->data);
+//     ud->data = NULL;
+//   }
 //   free(read_callbacks);
 //   read_callbacks = NULL;
 //   read_callbacks_num = 0;

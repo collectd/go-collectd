@@ -70,6 +70,14 @@ package fake
 // }
 //
 // void reset_write(void) {
+//   for (size_t i = 0; i < write_callbacks_num; i++) {
+//     user_data_t *ud = &write_callbacks[i].user_data;
+//     if (ud->free_func == NULL) {
+//       continue;
+//     }
+//     ud->free_func(ud->data);
+//     ud->data = NULL;
+//   }
 //   free(write_callbacks);
 //   write_callbacks = NULL;
 //   write_callbacks_num = 0;

@@ -45,6 +45,14 @@ package fake
 // }
 //
 // void reset_log(void) {
+//   for (size_t i = 0; i < log_callbacks_num; i++) {
+//     user_data_t *ud = &log_callbacks[i].user_data;
+//     if (ud->free_func == NULL) {
+//       continue;
+//     }
+//     ud->free_func(ud->data);
+//     ud->data = NULL;
+//   }
 //   free(log_callbacks);
 //   log_callbacks = NULL;
 //   log_callbacks_num = 0;

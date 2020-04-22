@@ -9,7 +9,7 @@ package fake
 // cdtime_t plugin_get_interval(void) {
 //   return interval;
 // }
-// static void plugin_set_interval(cdtime_t d) {
+// void plugin_set_interval(cdtime_t d) {
 //   interval = d;
 // }
 import "C"

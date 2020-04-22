@@ -3,6 +3,8 @@
 package fake
 
 // void reset_log(void);
+// void reset_read(void);
+// void reset_write(void);
 import "C"
 
 import (
@@ -18,4 +20,6 @@ import (
 func TearDown() {
 	SetInterval(10 * time.Second)
 	C.reset_log()
+	C.reset_read()
+	C.reset_write()
 }

@@ -2,6 +2,7 @@ package network // import "collectd.org/network"
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 	"os"
@@ -52,7 +53,7 @@ func TestServer_Cancellation(t *testing.T) {
 	var srvErr error
 	go func() {
 		srv := &Server{
-			Addr: "localhost:" + DefaultService,
+			Addr: "localhost:0",
 		}
 
 		srvErr = srv.ListenAndWrite(ctx)
@@ -64,7 +65,7 @@ func TestServer_Cancellation(t *testing.T) {
 	cancel()
 	wg.Wait()
 
-	if srvErr != context.Canceled {
-		t.Errorf("srvErr = %#v, want %#v", srvErr, context.Canceled)
+	if !errors.Is(srvErr, context.Canceled) {
+		t.Errorf("srvErr = %v, want %v", srvErr, context.Canceled)
 	}
 }

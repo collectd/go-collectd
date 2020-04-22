@@ -15,7 +15,7 @@ type client struct {
 	pb.CollectdClient
 }
 
-// Newclient returns a wrapper around the gRPC client connection that maps
+// NewClient returns a wrapper around the gRPC client connection that maps
 // between the Go interface and the gRPC interface.
 func NewClient(conn *grpc.ClientConn) Interface {
 	return &client{

@@ -29,6 +29,7 @@ import (
 // this package instead.
 type Severity int
 
+// Predefined severities for collectd log functions.
 const (
 	SeverityError   Severity = 3
 	SeverityWarning Severity = 4

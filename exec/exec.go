@@ -15,7 +15,7 @@ import (
 )
 
 // Putval is the dispatcher used by the exec package to print ValueLists.
-var Putval = format.NewPutval(os.Stdout)
+var Putval api.Writer = format.NewPutval(os.Stdout)
 
 type valueCallback struct {
 	callback func() api.Value
@@ -107,6 +107,9 @@ func (cb valueCallback) run(ctx context.Context, g *sync.WaitGroup) {
 		case _ = <-cb.done:
 			g.Done()
 			return
+		case <-ctx.Done():
+			g.Done()
+			return
 		}
 	}
 }
@@ -123,6 +126,9 @@ func (cb voidCallback) run(ctx context.Context, g *sync.WaitGroup) {
 		case _ = <-ticker.C:
 			cb.callback(ctx, cb.interval)
 		case _ = <-cb.done:
+			g.Done()
+			return
+		case <-ctx.Done():
 			g.Done()
 			return
 		}

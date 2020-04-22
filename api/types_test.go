@@ -25,7 +25,7 @@ mysql_qcache		hits:COUNTER:0:U, inserts:COUNTER:0:U, not_cached:COUNTER:0:U, low
 	want := &DataSet{
 		Name: "percent",
 		Sources: []DataSource{
-			DataSource{
+			{
 				Name: "value",
 				Type: reflect.TypeOf(Gauge(0)),
 				Min:  0.0,

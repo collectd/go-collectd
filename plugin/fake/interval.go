@@ -20,6 +20,8 @@ import (
 	"collectd.org/cdtime"
 )
 
+// SetInterval sets the interval returned by the fake plugin_get_interval()
+// function.
 func SetInterval(d time.Duration) {
 	ival := cdtime.NewDuration(d)
 	C.plugin_set_interval(C.cdtime_t(ival))

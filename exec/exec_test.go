@@ -10,32 +10,34 @@ import (
 )
 
 func TestSanitizeInterval(t *testing.T) {
-	var got, want time.Duration
-
-	got = sanitizeInterval(10 * time.Second)
-	want = 10 * time.Second
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
+	cases := []struct {
+		arg  time.Duration
+		env  string
+		want time.Duration
+	}{
+		{42 * time.Second, "", 42 * time.Second},
+		{42 * time.Second, "23", 42 * time.Second},
+		{0, "23", 23 * time.Second},
+		{0, "8.15", 8150 * time.Millisecond},
+		{0, "", 10 * time.Second},
+		{0, "--- INVALID ---", 10 * time.Second},
 	}
 
-	// Environment with seconds
-	if err := os.Setenv("COLLECTD_INTERVAL", "42"); err != nil {
-		t.Fatalf("os.Setenv: %v", err)
-	}
-	got = sanitizeInterval(0)
-	want = 42 * time.Second
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
+	for _, tc := range cases {
+		if tc.env != "" {
+			if err := os.Setenv("COLLECTD_INTERVAL", tc.env); err != nil {
+				t.Fatal(err)
+			}
+		} else { // tc.env == ""
+			if err := os.Unsetenv("COLLECTD_INTERVAL"); err != nil {
+				t.Fatal(err)
+			}
+		}
 
-	// Environment with milliseconds
-	if err := os.Setenv("COLLECTD_INTERVAL", "31.337"); err != nil {
-		t.Fatalf("os.Setenv: %v", err)
-	}
-	got = sanitizeInterval(0)
-	want = 31337 * time.Millisecond
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
+		got := sanitizeInterval(tc.arg)
+		if got != tc.want {
+			t.Errorf("COLLECTD_INTERVAL=%q sanitizeInterval(%v) = %v, want %v", tc.env, tc.arg, got, tc.want)
+		}
 	}
 }
 

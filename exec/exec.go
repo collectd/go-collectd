@@ -15,19 +15,7 @@ import (
 )
 
 // Putval is the dispatcher used by the exec package to print ValueLists.
-var Putval = format.NewPutval(os.Stdout)
-
-type valueCallback struct {
-	callback func() api.Value
-	vl       *api.ValueList
-	done     chan bool
-}
-
-type voidCallback struct {
-	callback func(context.Context, time.Duration)
-	interval time.Duration
-	done     chan bool
-}
+var Putval api.Writer = format.NewPutval(os.Stdout)
 
 type callback interface {
 	run(context.Context, *sync.WaitGroup)
@@ -51,10 +39,10 @@ func NewExecutor() *Executor {
 // only returns a Number, i.e. either a api.Gauge or api.Derive, and formatting
 // and printing is done by the executor.
 func (e *Executor) ValueCallback(callback func() api.Value, vl *api.ValueList) {
-	e.cb = append(e.cb, valueCallback{
+	e.cb = append(e.cb, &valueCallback{
 		callback: callback,
-		vl:       vl,
-		done:     make(chan bool),
+		vl:       *vl,
+		done:     make(chan struct{}),
 	})
 }
 
@@ -67,7 +55,7 @@ func (e *Executor) VoidCallback(callback func(context.Context, time.Duration), i
 	e.cb = append(e.cb, voidCallback{
 		callback: callback,
 		interval: interval,
-		done:     make(chan bool),
+		done:     make(chan struct{}),
 	})
 }
 
@@ -89,48 +77,64 @@ func (e *Executor) Stop() {
 	}
 }
 
-func (cb valueCallback) run(ctx context.Context, g *sync.WaitGroup) {
+type valueCallback struct {
+	callback func() api.Value
+	vl       api.ValueList
+	done     chan struct{}
+}
+
+func (cb *valueCallback) run(ctx context.Context, g *sync.WaitGroup) {
+	defer g.Done()
+
 	if cb.vl.Host == "" {
 		cb.vl.Host = Hostname()
 	}
 	cb.vl.Interval = sanitizeInterval(cb.vl.Interval)
-	cb.vl.Values = make([]api.Value, 1)
 
 	ticker := time.NewTicker(cb.vl.Interval)
-
 	for {
 		select {
-		case _ = <-ticker.C:
-			cb.vl.Values[0] = cb.callback()
+		case <-ticker.C:
+			cb.vl.Values = []api.Value{cb.callback()}
 			cb.vl.Time = time.Now()
-			Putval.Write(ctx, cb.vl)
-		case _ = <-cb.done:
-			g.Done()
+			Putval.Write(ctx, &cb.vl)
+		case <-cb.done:
+			return
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (cb valueCallback) stop() {
-	cb.done <- true
+func (cb *valueCallback) stop() {
+	close(cb.done)
+}
+
+type voidCallback struct {
+	callback func(context.Context, time.Duration)
+	interval time.Duration
+	done     chan struct{}
 }
 
 func (cb voidCallback) run(ctx context.Context, g *sync.WaitGroup) {
+	defer g.Done()
+
 	ticker := time.NewTicker(sanitizeInterval(cb.interval))
 
 	for {
 		select {
-		case _ = <-ticker.C:
+		case <-ticker.C:
 			cb.callback(ctx, cb.interval)
-		case _ = <-cb.done:
-			g.Done()
+		case <-cb.done:
+			return
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
 func (cb voidCallback) stop() {
-	cb.done <- true
+	close(cb.done)
 }
 
 // Interval determines the default interval from the "COLLECTD_INTERVAL"

@@ -1,8 +1,11 @@
-package cdtime // import "collectd.org/cdtime"
+package cdtime_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
+
+	"collectd.org/cdtime"
 )
 
 // TestConversion converts a time.Time to a cdtime.Time and back, expecting the
@@ -28,54 +31,58 @@ func TestConversion(t *testing.T) {
 			continue
 		}
 
-		cdtime := New(want)
-		got := cdtime.Time()
+		ct := cdtime.New(want)
+		got := ct.Time()
 		if !got.Equal(want) {
 			t.Errorf("cdtime.Time(): got %v, want %v", got, want)
 		}
 	}
 }
 
-func TestDecompose(t *testing.T) {
-	cases := []struct {
-		in    Time
-		s, ns int64
-	}{
-		// 1546167635576736987 / 2^30 = 1439980823.1524536265...
-		{Time(1546167635576736987), 1439980823, 152453627},
-		// 1546167831554815222 / 2^30 = 1439981005.6712620165...
-		{Time(1546167831554815222), 1439981005, 671262017},
-		// 1546167986577716567 / 2^30 = 1439981150.0475896215...
-		{Time(1546167986577716567), 1439981150, 47589622},
+func TestMarshalJSON(t *testing.T) {
+	tm := time.Unix(1587671455, 499000000)
+
+	orig := cdtime.New(tm)
+	data, err := json.Marshal(orig)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for _, c := range cases {
-		s, ns := c.in.decompose()
+	var got cdtime.Time
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
 
-		if s != c.s || ns != c.ns {
-			t.Errorf("decompose(%d) = (%d, %d) want (%d, %d)", c.in, s, ns, c.s, c.ns)
-		}
+	// JSON Marshaling is not loss-less, because it only encodes
+	// millisecond precision.
+	if got, want := got.String(), "1587671455.499"; got != want {
+		t.Errorf("json.Unmarshal() result differs: got %q, want %q", got, want)
 	}
 }
 
-func TestNewNano(t *testing.T) {
+func TestNewDuration(t *testing.T) {
 	cases := []struct {
-		ns   uint64
-		want Time
+		d    time.Duration
+		want cdtime.Time
 	}{
 		// 1439981652801860766 * 2^30 / 10^9 = 1546168526406004689.4
-		{1439981652801860766, Time(1546168526406004689)},
+		{1439981652801860766 * time.Nanosecond, cdtime.Time(1546168526406004689)},
 		// 1439981836985281914 * 2^30 / 10^9 = 1546168724171447263.4
-		{1439981836985281914, Time(1546168724171447263)},
+		{1439981836985281914 * time.Nanosecond, cdtime.Time(1546168724171447263)},
 		// 1439981880053705608 * 2^30 / 10^9 = 1546168770415815077.4
-		{1439981880053705608, Time(1546168770415815077)},
+		{1439981880053705608 * time.Nanosecond, cdtime.Time(1546168770415815077)},
+		// 1439981880053705920 * 2^30 / 10^9 = 1546168770415815412.5
+		{1439981880053705920 * time.Nanosecond, cdtime.Time(1546168770415815413)},
 	}
 
-	for _, c := range cases {
-		got := newNano(c.ns)
+	for _, tc := range cases {
+		d := cdtime.NewDuration(tc.d)
+		if got, want := d, tc.want; got != want {
+			t.Errorf("NewDuration(%v) = %d, want %d", tc.d, got, want)
+		}
 
-		if got != c.want {
-			t.Errorf("newNano(%d) = %d, want %d", c.ns, got, c.want)
+		if got, want := d.Duration(), tc.d; got != want {
+			t.Errorf("%#v.Duration() = %v, want %v", d, got, want)
 		}
 	}
 }

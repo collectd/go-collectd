@@ -104,6 +104,11 @@ package plugin // import "collectd.org/plugin"
 // int register_log_wrapper(char const *, plugin_log_cb, user_data_t const *);
 // int wrap_log_callback(int, char *, user_data_t *);
 //
+// int register_complex_config_wrapper(char const *, plugin_configure_cb);
+// int wrap_configure_callback(int, char *, user_data_t *);
+//
+// typedef int (*plugin_complex_config_cb)(oconfig_item_t);
+//
 // typedef void (*free_func_t)(void *);
 import "C"
 
@@ -420,6 +425,88 @@ func wrap_log_callback(sev C.int, msg *C.char, ud *C.user_data_t) C.int {
 	ctx := withName(context.Background(), name)
 	f.Log(ctx, Severity(sev), C.GoString(msg))
 
+	return 0
+}
+
+type configValueType int
+
+const (
+	configTypeString configValueType = iota
+	configTypeNumber
+	configTypeBoolean
+)
+
+// ConfigValue is C.oconfig_value_t implemented as a Go struct.
+type ConfigValue struct {
+	typ configValueType
+	s   string
+	f   float64
+	b   bool
+}
+
+func (v ConfigValue) String() (string, bool) {
+	return v.s, v.typ == configTypeString
+}
+
+func (v ConfigValue) Number() (float64, bool) {
+	return v.f, v.typ == configTypeNumber
+}
+
+func (v ConfigValue) Boolean() (bool, bool) {
+	return v.b, v.typ == configTypeBoolean
+}
+
+// Config is C.oconfig_item_t in Go form, with convenience functions.
+type Config struct {
+	Key      string
+	Values   []ConfigValue
+	Children []Config
+}
+
+// Merge appends other's children to c's children.
+// Returns an error if Key or any Values differ.
+func (c *Config) Merge(other *Config) error {
+	panic("Not yet implemented")
+}
+
+// Unmarshal applies the configuration from a Config to an arbitrary struct.
+func (c *Config) Unmarshal(v interface{}) error {
+	panic("Not yet implemented")
+}
+
+// Configurer implements a Configure callback.
+type Configurer interface {
+	Configure(context.Context, interface{})
+}
+
+// Configurers are registered once but Configs may be received multiple times and merged together before unmarshalling,
+// so they're tracked together for a convenient Unmarshal call.
+type configPair struct {
+	f Configurer
+	c Config
+}
+
+var configureFuncs = make(map[string]configPair)
+
+// RegisterConfigure registers a configuration-receiving function with the daemon.
+func RegisterConfigure(name string, c Configurer) error {
+	cName := C.CString(name)
+
+	status, err := C.register_complex_config_wrapper(cName, C.plugin_complex_config_cb(C.wrap_configure_callback))
+	if err := wrapCError(status, err, "register_configure"); err != nil {
+		return err
+	}
+
+	configureFuncs[name] = configPair{
+		f: c,
+		c: Config{},
+	}
+	return nil
+}
+
+//export wrap_configure_callback
+func wrap_configure_callback(oconfig *C.oconfig_item_t) C.int {
+	panic("Not yet implemented")
 	return 0
 }
 

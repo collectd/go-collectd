@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -63,10 +64,11 @@ func TestValueCallback_ExecutorStop(t *testing.T) {
 				tc.stopFunc(cancel, e)
 			}()
 
+			var once sync.Once
 			e.ValueCallback(func() api.Value {
-				defer func() {
+				once.Do(func() {
 					close(ch)
-				}()
+				})
 				return api.Derive(42)
 			}, &api.ValueList{
 				Identifier: api.Identifier{
@@ -120,14 +122,20 @@ func TestVoidCallback(t *testing.T) {
 				tc.stopFunc(cancel, e)
 			}()
 
-			var calls int
+			var (
+				calls int
+				once  sync.Once
+			)
 			e.VoidCallback(func(_ context.Context, d time.Duration) {
 				if got, want := d, time.Millisecond; got != want {
 					t.Errorf("VoidCallback(%v), want argument %v", got, want)
 				}
+
 				calls++
 
-				close(ch)
+				once.Do(func() {
+					close(ch)
+				})
 			}, time.Millisecond)
 
 			// e.Run() blocks until the context is canceled or

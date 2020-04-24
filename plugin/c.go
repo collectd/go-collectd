@@ -8,7 +8,7 @@ package plugin // import "collectd.org/plugin"
 // #include <stdlib.h>
 // #include <dlfcn.h>
 //
-// int (*register_read_ptr) (char const *group, char const *name,
+// static int (*register_read_ptr) (char const *group, char const *name,
 //     plugin_read_cb callback,
 //     cdtime_t interval,
 //     user_data_t *ud) = NULL;
@@ -24,7 +24,7 @@ package plugin // import "collectd.org/plugin"
 //   return (*register_read_ptr) (group, name, callback, interval, ud);
 // }
 //
-// int (*dispatch_values_ptr) (value_list_t const *vl);
+// static int (*dispatch_values_ptr) (value_list_t const *vl);
 // int dispatch_values_wrapper (value_list_t const *vl) {
 //   if (dispatch_values_ptr == NULL) {
 //     void *hnd = dlopen(NULL, RTLD_LAZY);
@@ -87,7 +87,7 @@ package plugin // import "collectd.org/plugin"
 //   return vl->values[i].derive;
 // }
 //
-// int (*register_write_ptr) (char const *, plugin_write_cb, user_data_t *);
+// static int (*register_write_ptr) (char const *, plugin_write_cb, user_data_t *);
 // int register_write_wrapper (char const *name, plugin_write_cb callback, user_data_t *user_data) {
 //   if (register_write_ptr == NULL) {
 //     void *hnd = dlopen(NULL, RTLD_LAZY);
@@ -97,7 +97,7 @@ package plugin // import "collectd.org/plugin"
 //   return (*register_write_ptr) (name, callback, user_data);
 // }
 //
-// int (*register_shutdown_ptr) (char *, plugin_shutdown_cb);
+// static int (*register_shutdown_ptr) (char *, plugin_shutdown_cb);
 // int register_shutdown_wrapper (char *name, plugin_shutdown_cb callback) {
 //   if (register_shutdown_ptr == NULL) {
 //     void *hnd = dlopen(NULL, RTLD_LAZY);
@@ -108,7 +108,7 @@ package plugin // import "collectd.org/plugin"
 //
 // }
 //
-// int (*register_log_ptr) (char const *, plugin_log_cb, user_data_t const *);
+// static int (*register_log_ptr) (char const *, plugin_log_cb, user_data_t const *);
 // int register_log_wrapper (char const *name, plugin_log_cb callback, user_data_t const *user_data) {
 //   if (register_log_ptr == NULL) {
 //     void *hnd = dlopen(NULL, RTLD_LAZY);

@@ -104,7 +104,7 @@ package plugin // import "collectd.org/plugin"
 // int register_log_wrapper(char const *, plugin_log_cb, user_data_t const *);
 // int wrap_log_callback(int, char *, user_data_t *);
 //
-// int register_complex_config_wrapper(char const *, plugin_configure_cb);
+// int register_complex_config_wrapper(char const *, plugin_complex_config_cb);
 // int wrap_configure_callback(int, char *, user_data_t *);
 //
 // typedef int (*plugin_complex_config_cb)(oconfig_item_t);

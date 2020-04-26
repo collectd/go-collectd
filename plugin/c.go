@@ -117,4 +117,14 @@ package plugin // import "collectd.org/plugin"
 //   }
 //   return (*register_log_ptr) (name, callback, user_data);
 // }
+//
+// static int *timeout_ptr;
+// int timeout_wrapper(void) {
+//   if (timeout_ptr == NULL) {
+//     void *hnd = dlopen(NULL, RTLD_LAZY);
+//     timeout_ptr = dlsym(hnd, "timeout_g");
+//     dlclose(hnd);
+//   }
+//   return *timeout_ptr;
+// }
 import "C"

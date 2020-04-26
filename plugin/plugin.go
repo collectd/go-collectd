@@ -79,6 +79,7 @@ package plugin // import "collectd.org/plugin"
 //
 // int dispatch_values_wrapper (value_list_t const *vl);
 // cdtime_t plugin_get_interval_wrapper(void);
+// int timeout_wrapper(void);
 //
 // data_source_t *ds_dsrc(data_set_t const *ds, size_t i);
 //
@@ -119,6 +120,9 @@ import (
 
 // Reader defines the interface for read callbacks, i.e. Go functions that are
 // called periodically from the collectd daemon.
+// The context passed to the Read() function has a timeout based on collectd's
+// "Timeout" global config option. It defaults to twice the plugin's read
+// interval.
 type Reader interface {
 	Read(ctx context.Context) error
 }
@@ -245,7 +249,17 @@ func wrap_read_callback(ud *C.user_data_t) C.int {
 		return -1
 	}
 
-	ctx := withName(context.Background(), name)
+	timeout, err := Timeout()
+	if err != nil {
+		Errorf("%s plugin: Timeout() failed: %v", name, err)
+		return -1
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ctx = withName(ctx, name)
+
 	if err := r.Read(ctx); err != nil {
 		Errorf("%s plugin: Read() failed: %v", name, err)
 		return -1
@@ -263,6 +277,21 @@ func Interval() (time.Duration, error) {
 	}
 
 	return cdtime.Time(ival).Duration(), nil
+}
+
+// Timeout returns the duration after which this plugin's metrics are
+// considered stale and are pruned from collectd's internal metrics cache.
+func Timeout() (time.Duration, error) {
+	to, err := C.timeout_wrapper()
+	if err != nil {
+		return 0, fmt.Errorf("timeout_wrapper() failed: %w", err)
+	}
+	ival, err := Interval()
+	if err != nil {
+		return 0, err
+	}
+
+	return ival * time.Duration(to), nil
 }
 
 // writeFuncs holds references to all write callbacks, so the garbage collector

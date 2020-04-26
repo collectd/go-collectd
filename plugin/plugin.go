@@ -104,10 +104,12 @@ package plugin // import "collectd.org/plugin"
 // int register_log_wrapper(char const *, plugin_log_cb, user_data_t const *);
 // int wrap_log_callback(int, char *, user_data_t *);
 //
-// int register_complex_config_wrapper(char const *, plugin_complex_config_cb);
-// int wrap_configure_callback(int, char *, user_data_t *);
+// typedef int (*plugin_complex_config_cb)(oconfig_item_t *);
 //
-// typedef int (*plugin_complex_config_cb)(oconfig_item_t);
+// int register_complex_config_wrapper(char const *, plugin_complex_config_cb);
+// int wrap_configure_callback(oconfig_item_t *);
+//
+// int register_init_wrapper (const char *name, plugin_init_cb callback);
 //
 // typedef void (*free_func_t)(void *);
 import "C"
@@ -456,7 +458,7 @@ func (v ConfigValue) Boolean() (bool, bool) {
 	return v.b, v.typ == configTypeBoolean
 }
 
-// Config is C.oconfig_item_t in Go form, with convenience functions.
+// Config represents one configuration block, which may contain other configuration blocks.
 type Config struct {
 	Key      string
 	Values   []ConfigValue
@@ -491,6 +493,7 @@ var configureFuncs = make(map[string]configPair)
 // RegisterConfigure registers a configuration-receiving function with the daemon.
 func RegisterConfigure(name string, c Configurer) error {
 	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
 
 	status, err := C.register_complex_config_wrapper(cName, C.plugin_complex_config_cb(C.wrap_configure_callback))
 	if err := wrapCError(status, err, "register_configure"); err != nil {
@@ -499,13 +502,12 @@ func RegisterConfigure(name string, c Configurer) error {
 
 	configureFuncs[name] = configPair{
 		f: c,
-		c: Config{},
 	}
 	return nil
 }
 
 //export wrap_configure_callback
-func wrap_configure_callback(oconfig *C.oconfig_item_t) C.int {
+func wrap_configure_callback(ci *C.oconfig_item_t) C.int {
 	panic("Not yet implemented")
 	return 0
 }

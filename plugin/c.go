@@ -118,7 +118,9 @@ package plugin // import "collectd.org/plugin"
 //   return (*register_log_ptr) (name, callback, user_data);
 // }
 //
-// int (*register_complex_config_ptr) (const char *, plugin_complex_config_cb);
+// typedef int (*plugin_complex_config_cb)(oconfig_item_t *);
+//
+// static int (*register_complex_config_ptr) (const char *, plugin_complex_config_cb);
 // int register_complex_config_wrapper (const char *name, plugin_complex_config_cb callback) {
 //   if (register_complex_config_ptr == NULL) {
 //     void *hnd = dlopen(NULL, RTLD_LAZY);
@@ -128,7 +130,7 @@ package plugin // import "collectd.org/plugin"
 //   return (*register_complex_config_ptr) (name, callback);
 // }
 //
-// int (*register_init_ptr) (const char *, plugin_init_cb);
+// static int (*register_init_ptr) (const char *, plugin_init_cb);
 // int register_init_wrapper (const char *name, plugin_init_cb callback) {
 //   if (register_init_ptr == NULL) {
 //     void *hnd = dlopen(NULL, RTLD_LAZY);

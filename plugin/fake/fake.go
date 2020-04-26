@@ -6,6 +6,8 @@ package fake
 // void reset_read(void);
 // void reset_shutdown(void);
 // void reset_write(void);
+//
+// int timeout_g = 2;
 import "C"
 
 import (

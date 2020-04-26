@@ -18,6 +18,10 @@ package fake
 // int plugin_register_complex_read(const char *group, const char *name,
 //                                  plugin_read_cb callback, cdtime_t interval,
 //                                  user_data_t const *user_data) {
+//   if (interval == 0) {
+//     interval = plugin_get_interval();
+//   }
+//
 //   read_callback_t *ptr = realloc(
 //       read_callbacks, (read_callbacks_num + 1) * sizeof(*read_callbacks));
 //   if (ptr == NULL) {

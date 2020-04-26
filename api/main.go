@@ -152,3 +152,50 @@ func (d *Dispatcher) Write(ctx context.Context, vl *ValueList) error {
 	}
 	return nil
 }
+
+type configValueType int
+
+const (
+	configTypeString configValueType = iota
+	configTypeNumber
+	configTypeBoolean
+)
+
+// ConfigValue may be either a string, float64 or boolean value.
+// This is the Go equivalent of the C type "oconfig_value_t".
+type ConfigValue struct {
+	typ configValueType
+	s   string
+	f   float64
+	b   bool
+}
+
+func (v ConfigValue) String() (string, bool) {
+	return v.s, v.typ == configTypeString
+}
+
+func (v ConfigValue) Number() (float64, bool) {
+	return v.f, v.typ == configTypeNumber
+}
+
+func (v ConfigValue) Boolean() (bool, bool) {
+	return v.b, v.typ == configTypeBoolean
+}
+
+// Config represents one configuration block, which may contain other configuration blocks.
+type Config struct {
+	Key      string
+	Values   []ConfigValue
+	Children []Config
+}
+
+// Merge appends other's children to c's children.
+// Returns an error if Key or any Values differ.
+func (c *Config) Merge(other *Config) error {
+	panic("Not yet implemented")
+}
+
+// Unmarshal applies the configuration from a Config to an arbitrary struct.
+func (c *Config) Unmarshal(v interface{}) error {
+	panic("Not yet implemented")
+}

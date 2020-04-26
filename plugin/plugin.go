@@ -430,52 +430,6 @@ func wrap_log_callback(sev C.int, msg *C.char, ud *C.user_data_t) C.int {
 	return 0
 }
 
-type configValueType int
-
-const (
-	configTypeString configValueType = iota
-	configTypeNumber
-	configTypeBoolean
-)
-
-// ConfigValue is C.oconfig_value_t implemented as a Go struct.
-type ConfigValue struct {
-	typ configValueType
-	s   string
-	f   float64
-	b   bool
-}
-
-func (v ConfigValue) String() (string, bool) {
-	return v.s, v.typ == configTypeString
-}
-
-func (v ConfigValue) Number() (float64, bool) {
-	return v.f, v.typ == configTypeNumber
-}
-
-func (v ConfigValue) Boolean() (bool, bool) {
-	return v.b, v.typ == configTypeBoolean
-}
-
-// Config represents one configuration block, which may contain other configuration blocks.
-type Config struct {
-	Key      string
-	Values   []ConfigValue
-	Children []Config
-}
-
-// Merge appends other's children to c's children.
-// Returns an error if Key or any Values differ.
-func (c *Config) Merge(other *Config) error {
-	panic("Not yet implemented")
-}
-
-// Unmarshal applies the configuration from a Config to an arbitrary struct.
-func (c *Config) Unmarshal(v interface{}) error {
-	panic("Not yet implemented")
-}
-
 // Configurer implements a Configure callback.
 type Configurer interface {
 	Configure(context.Context, interface{})

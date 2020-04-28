@@ -100,6 +100,26 @@ func (vl *ValueList) DSName(index int) string {
 	return "value"
 }
 
+// Clone returns a copy of vl.
+// Unfortunately, many functions expect a pointer to a value list. If the
+// original value list must not be modified, it may be necessary to create and
+// pass a copy. This is what this method helps to do.
+func (vl *ValueList) Clone() *ValueList {
+	if vl == nil {
+		return nil
+	}
+
+	vlCopy := *vl
+
+	vlCopy.Values = make([]Value, len(vl.Values))
+	copy(vlCopy.Values, vl.Values)
+
+	vlCopy.DSNames = make([]string, len(vl.DSNames))
+	copy(vlCopy.DSNames, vl.DSNames)
+
+	return &vlCopy
+}
+
 // Writer are objects accepting a ValueList for writing, for example to the
 // network.
 type Writer interface {
@@ -141,11 +161,7 @@ func (d *Dispatcher) Len() int {
 func (d *Dispatcher) Write(ctx context.Context, vl *ValueList) error {
 	for _, w := range d.writers {
 		go func(w Writer) {
-			vlCopy := vl
-			vlCopy.Values = make([]Value, len(vl.Values))
-			copy(vlCopy.Values, vl.Values)
-
-			if err := w.Write(ctx, vlCopy); err != nil {
+			if err := w.Write(ctx, vl.Clone()); err != nil {
 				log.Printf("%T.Write(): %v", w, err)
 			}
 		}(w)

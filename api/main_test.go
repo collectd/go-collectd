@@ -1,17 +1,18 @@
-package api // import "collectd.org/api"
+package api_test
 
 import (
 	"testing"
+	"collectd.org/api"
 )
 
 func TestParseIdentifier(t *testing.T) {
 	cases := []struct {
 		Input string
-		Want  Identifier
+		Want  api.Identifier
 	}{
 		{
 			Input: "example.com/golang/gauge",
-			Want: Identifier{
+			Want: api.Identifier{
 				Host:   "example.com",
 				Plugin: "golang",
 				Type:   "gauge",
@@ -19,7 +20,7 @@ func TestParseIdentifier(t *testing.T) {
 		},
 		{
 			Input: "example.com/golang-foo/gauge-bar",
-			Want: Identifier{
+			Want: api.Identifier{
 				Host:           "example.com",
 				Plugin:         "golang",
 				PluginInstance: "foo",
@@ -29,7 +30,7 @@ func TestParseIdentifier(t *testing.T) {
 		},
 		{
 			Input: "example.com/golang-a-b/gauge-b-c",
-			Want: Identifier{
+			Want: api.Identifier{
 				Host:           "example.com",
 				Plugin:         "golang",
 				PluginInstance: "a-b",
@@ -40,7 +41,7 @@ func TestParseIdentifier(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		if got, err := ParseIdentifier(c.Input); got != c.Want || err != nil {
+		if got, err := api.ParseIdentifier(c.Input); got != c.Want || err != nil {
 			t.Errorf("case %d: got (%v, %v), want (%v, %v)", i, got, err, c.Want, nil)
 		}
 	}
@@ -51,14 +52,14 @@ func TestParseIdentifier(t *testing.T) {
 	}
 
 	for _, c := range failures {
-		if got, err := ParseIdentifier(c); err == nil {
-			t.Errorf("got (%v, %v), want (%v, !%v)", got, err, Identifier{}, nil)
+		if got, err := api.ParseIdentifier(c); err == nil {
+			t.Errorf("got (%v, %v), want (%v, !%v)", got, err, api.Identifier{}, nil)
 		}
 	}
 }
 
 func TestIdentifierString(t *testing.T) {
-	id := Identifier{
+	id := api.Identifier{
 		Host:   "example.com",
 		Plugin: "golang",
 		Type:   "gauge",

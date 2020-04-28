@@ -4,10 +4,12 @@ package api // import "collectd.org/api"
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"go.uber.org/multierr"
 )
 
 // Value represents either a Gauge or a Derive. It is Go's equivalent to the C
@@ -139,32 +141,56 @@ func (id Identifier) String() string {
 	return str
 }
 
-// Dispatcher implements a multiplexer for Writer, i.e. each ValueList
-// written to it is copied and written to each registered Writer.
-type Dispatcher struct {
-	writers []Writer
-}
+// Fanout implements a multiplexer for Writer, i.e. each ValueList written to
+// it is copied and written to each Writer.
+type Fanout []Writer
 
-// Add adds a Writer to the Dispatcher.
-func (d *Dispatcher) Add(w Writer) {
-	d.writers = append(d.writers, w)
-}
+// Write writes the value list to each writer. Each writer receives a copy of
+// the value list to avoid writers interfering with one another. Writers are
+// executed concurrently. Write blocks until all writers have returned and
+// returns an error containing all errors returned by writers.
+//
+// If the context is canceled, Write returns an error immediately. Since it may
+// return before all writers have finished, the returned error may not contain
+// the error of all writers.
+func (f Fanout) Write(ctx context.Context, vl *ValueList) error {
+	var (
+		ch = make(chan error)
+		wg sync.WaitGroup
+	)
 
-// Len returns the number of Writers belonging to the Dispatcher.
-func (d *Dispatcher) Len() int {
-	return len(d.writers)
-}
-
-// Write starts a new Goroutine for each Writer which creates a copy of the
-// ValueList and then calls the Writer with the copy. It returns nil
-// immediately.
-func (d *Dispatcher) Write(ctx context.Context, vl *ValueList) error {
-	for _, w := range d.writers {
+	for _, w := range f {
+		wg.Add(1)
 		go func(w Writer) {
+			defer wg.Done()
+
 			if err := w.Write(ctx, vl.Clone()); err != nil {
-				log.Printf("%T.Write(): %v", w, err)
+				// block until the error is read, or until the
+				// context is canceled.
+				select {
+				case ch <- fmt.Errorf("%T.Write(): %w", w, err):
+				case <-ctx.Done():
+				}
 			}
 		}(w)
 	}
-	return nil
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	var errs error
+	for {
+		select {
+		case err, ok := <-ch:
+			if !ok {
+				// channel closed, all goroutines done
+				return errs
+			}
+			errs = multierr.Append(errs, err)
+		case <-ctx.Done():
+			return multierr.Append(errs, ctx.Err())
+		}
+	}
 }

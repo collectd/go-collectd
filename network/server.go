@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"sync"
 
 	"collectd.org/api"
 )
@@ -96,12 +97,14 @@ func (srv *Server) ListenAndWrite(ctx context.Context) error {
 		}
 	}()
 
+	var wg sync.WaitGroup
 	for {
 		n, err := srv.Conn.Read(buf)
 		if err != nil {
 			// if ctxErr is non-nil the context got cancelled.
 			if ctxErr != nil {
 				srv.Conn = nil
+				wg.Wait()
 				return ctxErr
 			}
 
@@ -110,6 +113,7 @@ func (srv *Server) ListenAndWrite(ctx context.Context) error {
 			close(shutdown)
 			srv.Conn.Close()
 			srv.Conn = nil
+			wg.Wait()
 			return err
 		}
 
@@ -119,7 +123,11 @@ func (srv *Server) ListenAndWrite(ctx context.Context) error {
 			continue
 		}
 
-		go dispatch(ctx, valueLists, srv.Writer)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dispatch(ctx, valueLists, srv.Writer)
+		}()
 	}
 }
 

@@ -19,13 +19,16 @@ Gauge.
 
   // Call Run() in its own goroutine.
   func main() {
+          ctx := context.Background()
+
+          // Any other type implementing api.Writer works.
           client, err := network.Dial(
                   net.JoinHostPort(network.DefaultIPv6Address, network.DefaultService),
                   network.ClientOptions{})
           if err !=  nil {
                   log.Fatal(err)
-                  }
-          go export.Run(client, export.Options{
+          }
+          go export.Run(ctx, client, export.Options{
                   Interval: 10 * time.Second,
           })
           // …

@@ -75,13 +75,14 @@ type Options struct {
 }
 
 // Run periodically calls the ValueList function of each Var, sets the Time and
-// Interval fields and passes it w.Write(). This function blocks indefinitely.
+// Interval fields and passes it w.Write(). This function blocks until the
+// context is cancelled.
 func Run(ctx context.Context, w api.Writer, opts Options) error {
 	ticker := time.NewTicker(opts.Interval)
 
 	for {
 		select {
-		case _ = <-ticker.C:
+		case <-ticker.C:
 			mutex.RLock()
 			for _, v := range vars {
 				vl := v.ValueList()
@@ -93,6 +94,8 @@ func Run(ctx context.Context, w api.Writer, opts Options) error {
 				}
 			}
 			mutex.RUnlock()
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }

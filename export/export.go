@@ -89,8 +89,7 @@ func Run(ctx context.Context, w api.Writer, opts Options) error {
 				vl.Time = time.Now()
 				vl.Interval = opts.Interval
 				if err := w.Write(ctx, vl); err != nil {
-					mutex.RUnlock()
-					return err
+					log.Printf("%T.Write(): %v", w, err)
 				}
 			}
 			mutex.RUnlock()

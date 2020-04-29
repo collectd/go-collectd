@@ -19,13 +19,16 @@ Gauge.
 
   // Call Run() in its own goroutine.
   func main() {
+          ctx := context.Background()
+
+          // Any other type implementing api.Writer works.
           client, err := network.Dial(
                   net.JoinHostPort(network.DefaultIPv6Address, network.DefaultService),
                   network.ClientOptions{})
           if err !=  nil {
                   log.Fatal(err)
-                  }
-          go export.Run(client, export.Options{
+          }
+          go export.Run(ctx, client, export.Options{
                   Interval: 10 * time.Second,
           })
           // …
@@ -75,24 +78,26 @@ type Options struct {
 }
 
 // Run periodically calls the ValueList function of each Var, sets the Time and
-// Interval fields and passes it w.Write(). This function blocks indefinitely.
+// Interval fields and passes it w.Write(). This function blocks until the
+// context is cancelled.
 func Run(ctx context.Context, w api.Writer, opts Options) error {
 	ticker := time.NewTicker(opts.Interval)
 
 	for {
 		select {
-		case _ = <-ticker.C:
+		case <-ticker.C:
 			mutex.RLock()
 			for _, v := range vars {
 				vl := v.ValueList()
 				vl.Time = time.Now()
 				vl.Interval = opts.Interval
 				if err := w.Write(ctx, vl); err != nil {
-					mutex.RUnlock()
-					return err
+					log.Printf("%T.Write(): %v", w, err)
 				}
 			}
 			mutex.RUnlock()
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }

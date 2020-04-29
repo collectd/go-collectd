@@ -3,6 +3,7 @@ package network // import "collectd.org/network"
 import (
 	"bytes"
 	"context"
+	"errors"
 	"math"
 	"reflect"
 	"testing"
@@ -170,7 +171,7 @@ func TestUnknownType(t *testing.T) {
 	}
 
 	s1 := NewBuffer(0)
-	if err := s1.Write(ctx, vl); err != ErrUnknownType {
+	if err := s1.Write(ctx, vl); !errors.Is(err, ErrUnknownType) {
 		t.Errorf("Buffer.Write(%v) = %v, want %v", vl, err, ErrUnknownType)
 	}
 

@@ -128,6 +128,14 @@ type Writer interface {
 	Write(context.Context, *ValueList) error
 }
 
+// WriterFunc implements the Writer interface based on a wrapped function.
+type WriterFunc func(context.Context, *ValueList) error
+
+// Write calls the wrapped function.
+func (f WriterFunc) Write(ctx context.Context, vl *ValueList) error {
+	return f(ctx, vl)
+}
+
 // String returns a string representation of the Identifier.
 func (id Identifier) String() string {
 	str := id.Host + "/" + id.Plugin

@@ -2,10 +2,13 @@ package meta
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"math"
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func ExampleData() {
@@ -19,40 +22,69 @@ func ExampleData() {
 	m["required"] = String("towel")
 
 	// Read back a value where you expect a certain type:
-	if v, ok := m["answer"]; ok {
-		answer, ok := v.Int64()
-		if !ok {
-			log.Printf("answer is a %T, expected an Int64", v)
-		}
-		if answer != 42 {
-			log.Printf("answer is a %v, which is obviously wrong", answer)
-		}
+	answer, ok := m["answer"].Int64()
+	if !ok {
+		log.Println("Answer is not an int64")
+	} else {
+		// use value
+		_ = answer + 1
+	}
+
+	// String is a bit different, because String() does not return a boolean.
+	if !m["required"].IsString() {
+		log.Println("Required is not a string")
+	} else {
+		// use value
+		_ = m["required"].String() + "!"
 	}
 
 	// Read back a value where you don't know the type:
-	if v, ok := m["required"]; ok {
-		switch v := v.(type) {
-		case String:
-			// here, v is of type String. There are two ways to convert it
-			// to non-interface type:
-			//   * s := string(v)
-			//   * s, ok := v.String()
-			msg := "You need a " + string(v)
-			log.Print(msg)
-		default:
-			log.Printf("You need a %v, but I don't know what that is", v)
+	switch v := m["answer"].Interface().(type) {
+	case string:
+		log.Print("The answer is " + v)
+	case int64:
+		log.Printf("The answer is between %d and %d", v-1, v+1)
+	default:
+		log.Printf("Unexpected answer type: %T", v)
+	}
+}
+
+func TestMarshalJSON(t *testing.T) {
+	cases := []struct {
+		d    Data
+		want string
+	}{
+		{Data{"foo": Bool(true)}, `{"foo":true}`},
+		{Data{"foo": Float64(20.0 / 3.0)}, `{"foo":6.666666666666667}`},
+		{Data{"foo": Float64(math.NaN())}, `{"foo":null}`},
+		{Data{"foo": Int64(-42)}, `{"foo":-42}`},
+		{Data{"foo": UInt64(42)}, `{"foo":42}`},
+		{Data{"foo": String(`Hello "World"!`)}, `{"foo":"Hello \"World\"!"}`},
+		{Data{"foo": Entry{}}, `{"foo":null}`},
+	}
+
+	for _, tc := range cases {
+		got, err := json.Marshal(tc.d)
+		if err != nil {
+			t.Errorf("json.Marshal(%#v) = %v", tc.d, err)
+			continue
+		}
+
+		if diff := cmp.Diff(tc.want, string(got)); diff != "" {
+			t.Errorf("json.Marshal(%#v) differs (+got/-want):\n%s", tc.d, diff)
 		}
 	}
 }
 
 func TestUnmarshalJSON(t *testing.T) {
 	cases := []struct {
-		in   string
-		want Data
+		in      string
+		want    Data
+		wantErr bool
 	}{
 		{
 			in:   `{}`,
-			want: nil,
+			want: Data{},
 		},
 		{
 			in:   `{"bool":true}`,
@@ -74,7 +106,11 @@ func TestUnmarshalJSON(t *testing.T) {
 			in:   `{"float":42.25}`,
 			want: Data{"float": Float64(42.25)},
 		},
-		{ // 9223372036854777144 exceeds 2^63-1
+		{
+			in:   `{"float":null}`,
+			want: Data{"float": Float64(math.NaN())},
+		},
+		{
 			in: `{"bool":false,"string":"","int":-9223372036854775808,"uint":18446744073709551615,"float":0.00006103515625}`,
 			want: Data{
 				"bool":   Bool(false),
@@ -84,33 +120,132 @@ func TestUnmarshalJSON(t *testing.T) {
 				"float":  Float64(0.00006103515625),
 			},
 		},
+		{
+			in:      `{"float":["invalid", "type"]}`,
+			wantErr: true,
+		},
 	}
 
 	for _, c := range cases {
 		var got Data
-		if err := json.Unmarshal([]byte(c.in), &got); err != nil {
-			t.Errorf("Unmarshal() = %v", err)
+		err := json.Unmarshal([]byte(c.in), &got)
+		if gotErr := err != nil; gotErr != c.wantErr {
+			t.Errorf("Unmarshal() = %v, want error: %v", err, c.wantErr)
+		}
+		if err != nil || c.wantErr {
 			continue
 		}
 
-		if !reflect.DeepEqual(got, c.want) {
-			t.Errorf("Unmarshal() = %#v, want %#v", got, c.want)
+		opts := []cmp.Option{
+			cmp.AllowUnexported(Entry{}),
+			cmpopts.EquateNaNs(),
+		}
+		if diff := cmp.Diff(c.want, got, opts...); diff != "" {
+			t.Errorf("Unmarshal() result differs (+got/-want):\n%s", diff)
 		}
 	}
 }
 
-// TestUnmarshalJSON_NaN tests that null gets converted to Float64(math.NaN()).
-// We cannot add this to the above table test, because reflect.DeepEqual() does
-// not compare two NaNs as equal.
-func TestUnmarshalJSON_NaN(t *testing.T) {
-	var d Data
-	if err := json.Unmarshal([]byte(`{"float":null}`), &d); err != nil {
-		t.Errorf("Unmarshal() = %v", err)
-		return
+func TestEntry(t *testing.T) {
+	cases := []struct {
+		typ         string
+		e           Entry
+		wantBool    bool
+		wantFloat64 bool
+		wantInt64   bool
+		wantUInt64  bool
+		wantString  bool
+		s           string
+	}{
+		{
+			typ:      "bool",
+			e:        Bool(true),
+			wantBool: true,
+			s:        "true",
+		},
+		{
+			typ:         "float64",
+			e:           Float64(20.0 / 3.0),
+			wantFloat64: true,
+			s:           "6.66666666666667",
+		},
+		{
+			typ:       "int64",
+			e:         Int64(-9223372036854775808),
+			wantInt64: true,
+			s:         "-9223372036854775808",
+		},
+		{
+			typ:        "uint64",
+			e:          UInt64(18446744073709551615),
+			wantUInt64: true,
+			s:          "18446744073709551615",
+		},
+		{
+			typ:        "string",
+			e:          String("Hello, World!"),
+			wantString: true,
+			s:          "Hello, World!",
+		},
+		{
+			typ: "<nil>",
+			e:   Entry{},
+			s:   "<nil>",
+		},
 	}
 
-	got, ok := d["float"].Float64()
-	if !ok || !math.IsNaN(got) {
-		t.Errorf(`got["float"].Float64() = (%v, %v), want (%v, %v)`, got, ok, math.NaN(), true)
+	for _, tc := range cases {
+		if v, got := tc.e.Bool(); got != tc.wantBool {
+			t.Errorf("%#v.Bool() = (%v, %v), want (_, %v)", tc.e, v, got, tc.wantBool)
+		}
+
+		if v, got := tc.e.Float64(); got != tc.wantFloat64 {
+			t.Errorf("%#v.Float64() = (%v, %v), want (_, %v)", tc.e, v, got, tc.wantFloat64)
+		}
+
+		if v, got := tc.e.Int64(); got != tc.wantInt64 {
+			t.Errorf("%#v.Int64() = (%v, %v), want (_, %v)", tc.e, v, got, tc.wantInt64)
+		}
+
+		if v, got := tc.e.UInt64(); got != tc.wantUInt64 {
+			t.Errorf("%#v.UInt64() = (%v, %v), want (_, %v)", tc.e, v, got, tc.wantUInt64)
+		}
+
+		if got := tc.e.IsString(); got != tc.wantString {
+			t.Errorf("%#v.IsString() = %v, want %v", tc.e, got, tc.wantString)
+		}
+
+		if got, want := tc.e.String(), tc.s; got != want {
+			t.Errorf("%#v.String() = %q, want %q", tc.e, got, want)
+		}
+
+		if got, want := fmt.Sprintf("%T", tc.e.Interface()), tc.typ; got != want {
+			t.Errorf("%#v.Interface() = type %s, want type %s", tc.e, got, want)
+		}
+	}
+}
+
+func TestData_Clone(t *testing.T) {
+	want := Data{
+		"bool":   Bool(false),
+		"string": String(""),
+		"int":    Int64(-9223372036854775808),
+		"uint":   UInt64(18446744073709551615),
+		"float":  Float64(0.00006103515625),
+	}
+
+	got := want.Clone()
+
+	opts := []cmp.Option{
+		cmp.AllowUnexported(Entry{}),
+		cmpopts.EquateNaNs(),
+	}
+	if diff := cmp.Diff(want, got, opts...); diff != "" {
+		t.Errorf("Data.Clone() contains differences (+got/-want):\n%s", diff)
+	}
+
+	want = nil
+	if got := Data(nil).Clone(); got != nil {
+		t.Errorf("Data(nil).Clone() = %v, want %v", got, nil)
 	}
 }

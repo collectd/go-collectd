@@ -1,4 +1,4 @@
-package meta
+package meta_test
 
 import (
 	"encoding/json"
@@ -7,19 +7,20 @@ import (
 	"math"
 	"testing"
 
+	"collectd.org/meta"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func ExampleData() {
 	// Allocate new meta.Data object.
-	m := make(Data)
+	m := make(meta.Data)
 
 	// Add interger named "answer":
-	m["answer"] = Int64(42)
+	m["answer"] = meta.Int64(42)
 
 	// Add string named "required":
-	m["required"] = String("towel")
+	m["required"] = meta.String("towel")
 
 	// Read back a value where you expect a certain type:
 	answer, ok := m["answer"].Int64()
@@ -30,7 +31,7 @@ func ExampleData() {
 		_ = answer + 1
 	}
 
-	// String is a bit different, because String() does not return a boolean.
+	// String is a bit different, because meta.String() does not return a boolean.
 	if !m["required"].IsString() {
 		log.Println("Required is not a string")
 	} else {
@@ -51,16 +52,16 @@ func ExampleData() {
 
 func TestMarshalJSON(t *testing.T) {
 	cases := []struct {
-		d    Data
+		d    meta.Data
 		want string
 	}{
-		{Data{"foo": Bool(true)}, `{"foo":true}`},
-		{Data{"foo": Float64(20.0 / 3.0)}, `{"foo":6.666666666666667}`},
-		{Data{"foo": Float64(math.NaN())}, `{"foo":null}`},
-		{Data{"foo": Int64(-42)}, `{"foo":-42}`},
-		{Data{"foo": UInt64(42)}, `{"foo":42}`},
-		{Data{"foo": String(`Hello "World"!`)}, `{"foo":"Hello \"World\"!"}`},
-		{Data{"foo": Entry{}}, `{"foo":null}`},
+		{meta.Data{"foo": meta.Bool(true)}, `{"foo":true}`},
+		{meta.Data{"foo": meta.Float64(20.0 / 3.0)}, `{"foo":6.666666666666667}`},
+		{meta.Data{"foo": meta.Float64(math.NaN())}, `{"foo":null}`},
+		{meta.Data{"foo": meta.Int64(-42)}, `{"foo":-42}`},
+		{meta.Data{"foo": meta.UInt64(42)}, `{"foo":42}`},
+		{meta.Data{"foo": meta.String(`Hello "World"!`)}, `{"foo":"Hello \"World\"!"}`},
+		{meta.Data{"foo": meta.Entry{}}, `{"foo":null}`},
 	}
 
 	for _, tc := range cases {
@@ -79,45 +80,45 @@ func TestMarshalJSON(t *testing.T) {
 func TestUnmarshalJSON(t *testing.T) {
 	cases := []struct {
 		in      string
-		want    Data
+		want    meta.Data
 		wantErr bool
 	}{
 		{
 			in:   `{}`,
-			want: Data{},
+			want: meta.Data{},
 		},
 		{
 			in:   `{"bool":true}`,
-			want: Data{"bool": Bool(true)},
+			want: meta.Data{"bool": meta.Bool(true)},
 		},
 		{
 			in:   `{"string":"bar"}`,
-			want: Data{"string": String("bar")},
+			want: meta.Data{"string": meta.String("bar")},
 		},
 		{
 			in:   `{"int":42}`,
-			want: Data{"int": Int64(42)},
+			want: meta.Data{"int": meta.Int64(42)},
 		},
 		{ // 9223372036854777144 exceeds 2^63-1
 			in:   `{"uint":9223372036854777144}`,
-			want: Data{"uint": UInt64(9223372036854777144)},
+			want: meta.Data{"uint": meta.UInt64(9223372036854777144)},
 		},
 		{
 			in:   `{"float":42.25}`,
-			want: Data{"float": Float64(42.25)},
+			want: meta.Data{"float": meta.Float64(42.25)},
 		},
 		{
 			in:   `{"float":null}`,
-			want: Data{"float": Float64(math.NaN())},
+			want: meta.Data{"float": meta.Float64(math.NaN())},
 		},
 		{
 			in: `{"bool":false,"string":"","int":-9223372036854775808,"uint":18446744073709551615,"float":0.00006103515625}`,
-			want: Data{
-				"bool":   Bool(false),
-				"string": String(""),
-				"int":    Int64(-9223372036854775808),
-				"uint":   UInt64(18446744073709551615),
-				"float":  Float64(0.00006103515625),
+			want: meta.Data{
+				"bool":   meta.Bool(false),
+				"string": meta.String(""),
+				"int":    meta.Int64(-9223372036854775808),
+				"uint":   meta.UInt64(18446744073709551615),
+				"float":  meta.Float64(0.00006103515625),
 			},
 		},
 		{
@@ -127,7 +128,7 @@ func TestUnmarshalJSON(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		var got Data
+		var got meta.Data
 		err := json.Unmarshal([]byte(c.in), &got)
 		if gotErr := err != nil; gotErr != c.wantErr {
 			t.Errorf("Unmarshal() = %v, want error: %v", err, c.wantErr)
@@ -137,7 +138,7 @@ func TestUnmarshalJSON(t *testing.T) {
 		}
 
 		opts := []cmp.Option{
-			cmp.AllowUnexported(Entry{}),
+			cmp.AllowUnexported(meta.Entry{}),
 			cmpopts.EquateNaNs(),
 		}
 		if diff := cmp.Diff(c.want, got, opts...); diff != "" {
@@ -149,7 +150,7 @@ func TestUnmarshalJSON(t *testing.T) {
 func TestEntry(t *testing.T) {
 	cases := []struct {
 		typ         string
-		e           Entry
+		e           meta.Entry
 		wantBool    bool
 		wantFloat64 bool
 		wantInt64   bool
@@ -159,37 +160,37 @@ func TestEntry(t *testing.T) {
 	}{
 		{
 			typ:      "bool",
-			e:        Bool(true),
+			e:        meta.Bool(true),
 			wantBool: true,
 			s:        "true",
 		},
 		{
 			typ:         "float64",
-			e:           Float64(20.0 / 3.0),
+			e:           meta.Float64(20.0 / 3.0),
 			wantFloat64: true,
 			s:           "6.66666666666667",
 		},
 		{
 			typ:       "int64",
-			e:         Int64(-9223372036854775808),
+			e:         meta.Int64(-9223372036854775808),
 			wantInt64: true,
 			s:         "-9223372036854775808",
 		},
 		{
 			typ:        "uint64",
-			e:          UInt64(18446744073709551615),
+			e:          meta.UInt64(18446744073709551615),
 			wantUInt64: true,
 			s:          "18446744073709551615",
 		},
 		{
 			typ:        "string",
-			e:          String("Hello, World!"),
+			e:          meta.String("Hello, World!"),
 			wantString: true,
 			s:          "Hello, World!",
 		},
 		{
+			// meta.Entry's zero value
 			typ: "<nil>",
-			e:   Entry{},
 			s:   "<nil>",
 		},
 	}
@@ -226,18 +227,18 @@ func TestEntry(t *testing.T) {
 }
 
 func TestData_Clone(t *testing.T) {
-	want := Data{
-		"bool":   Bool(false),
-		"string": String(""),
-		"int":    Int64(-9223372036854775808),
-		"uint":   UInt64(18446744073709551615),
-		"float":  Float64(0.00006103515625),
+	want := meta.Data{
+		"bool":   meta.Bool(false),
+		"string": meta.String(""),
+		"int":    meta.Int64(-9223372036854775808),
+		"uint":   meta.UInt64(18446744073709551615),
+		"float":  meta.Float64(0.00006103515625),
 	}
 
 	got := want.Clone()
 
 	opts := []cmp.Option{
-		cmp.AllowUnexported(Entry{}),
+		cmp.AllowUnexported(meta.Entry{}),
 		cmpopts.EquateNaNs(),
 	}
 	if diff := cmp.Diff(want, got, opts...); diff != "" {
@@ -245,7 +246,7 @@ func TestData_Clone(t *testing.T) {
 	}
 
 	want = nil
-	if got := Data(nil).Clone(); got != nil {
+	if got := meta.Data(nil).Clone(); got != nil {
 		t.Errorf("Data(nil).Clone() = %v, want %v", got, nil)
 	}
 }

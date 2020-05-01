@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
+	"sort"
 	"testing"
+	"time"
 
 	"collectd.org/meta"
 	"github.com/google/go-cmp/cmp"
@@ -14,40 +17,128 @@ import (
 
 func ExampleData() {
 	// Allocate new meta.Data object.
-	m := make(meta.Data)
-
-	// Add interger named "answer":
-	m["answer"] = meta.Int64(42)
+	m := meta.Data{
+		// Add interger named "answer":
+		"answer": meta.Int64(42),
+		// Add bool named "panic":
+		"panic": meta.Bool(false),
+	}
 
 	// Add string named "required":
 	m["required"] = meta.String("towel")
 
-	// Read back a value where you expect a certain type:
-	answer, ok := m["answer"].Int64()
+	// Remove the "panic" value:
+	delete(m, "panic")
+}
+
+func ExampleData_exists() {
+	m := meta.Data{
+		"answer":   meta.Int64(42),
+		"panic":    meta.Bool(false),
+		"required": meta.String("towel"),
+	}
+
+	for _, k := range []string{"answer", "question"} {
+		_, ok := m[k]
+		fmt.Println(k, "exists:", ok)
+	}
+
+	// Output:
+	// answer exists: true
+	// question exists: false
+}
+
+// This example demonstrates how to get a list of keys from meta.Data.
+func ExampleData_keys() {
+	m := meta.Data{
+		"answer":   meta.Int64(42),
+		"panic":    meta.Bool(false),
+		"required": meta.String("towel"),
+	}
+
+	var keys []string
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	fmt.Println(keys)
+
+	// Output:
+	// [answer panic required]
+}
+
+func ExampleEntry() {
+	// Allocate an int64 Entry.
+	answer := meta.Int64(42)
+
+	// Read back the "answer" value and ensure it is in fact an int64.
+	a, ok := answer.Int64()
 	if !ok {
-		log.Println("Answer is not an int64")
-	} else {
-		// use value
-		_ = answer + 1
+		log.Fatal("Answer is not an int64")
+	}
+	fmt.Printf("The answer is between %d and %d\n", a-1, a+1)
+
+	// Allocate a string Entry.
+	required := meta.String("towel")
+
+	// String is a bit different, because Entry.String() does not return a boolean.
+	// Check that "required" is a string and read it into a variable.
+	if !required.IsString() {
+		log.Fatal("required is not a string")
+	}
+	fmt.Println("You need a " + required.String())
+
+	// The fmt.Stringer interface is implemented for all value types. To
+	// print a string with default formatting, rely on the String() method:
+	p := meta.Bool(false)
+	fmt.Printf("Should I panic? %v\n", p)
+
+	// Output:
+	// The answer is between 41 and 43
+	// You need a towel
+	// Should I panic? false
+}
+
+func ExampleEntry_Interface() {
+	rand.Seed(time.Now().UnixNano())
+	m := meta.Data{}
+
+	// Create a value with unknown type. "key" is either a string,
+	// or an int64.
+	switch rand.Intn(2) {
+	case 0:
+		m["key"] = meta.String("value")
+	case 1:
+		m["key"] = meta.Int64(42)
 	}
 
-	// String is a bit different, because meta.String() does not return a boolean.
-	if !m["required"].IsString() {
-		log.Println("Required is not a string")
-	} else {
-		// use value
-		_ = m["required"].String() + "!"
+	// Scenario 0: A specific type is expected. Report an error that
+	// includes the actual type in the error message, if the value is of a
+	// different type.
+	if _, ok := m["key"].Int64(); !ok {
+		err := fmt.Errorf("key is a %T, want an int64", m["key"].Interface())
+		fmt.Println(err) // prints "key is a string, want an int64"
 	}
 
-	// Read back a value where you don't know the type:
-	switch v := m["answer"].Interface().(type) {
+	// Scenario 1: Multiple or all types need to be handled, for example to
+	// encode the meta data values. The most elegant solution for that is a
+	// type switch.
+	switch v := m["key"].Interface().(type) {
 	case string:
-		log.Print("The answer is " + v)
+		// string-specific code here
 	case int64:
-		log.Printf("The answer is between %d and %d", v-1, v+1)
+		// The above code skipped printing this, so print it here so
+		// this example produces the same output every time, despite
+		// the randomness.
+		fmt.Println("key is a string, want an int64")
 	default:
-		log.Printf("Unexpected answer type: %T", v)
+		// Report the actual type if "key" is an unexpected type.
+		err := fmt.Errorf("unexpected type %T", v)
+		log.Fatal(err)
 	}
+
+	// Output:
+	// key is a string, want an int64
 }
 
 func TestMarshalJSON(t *testing.T) {

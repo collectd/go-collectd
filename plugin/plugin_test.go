@@ -230,8 +230,7 @@ func (r *testReader) Read(ctx context.Context) error {
 		return r.wantErr
 	}
 
-	w := plugin.Writer{}
-	return w.Write(ctx, r.vl)
+	return plugin.Write(ctx, r.vl)
 }
 
 type testWriter struct {

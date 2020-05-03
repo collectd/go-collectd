@@ -172,16 +172,10 @@ func newValueListT(vl *api.ValueList) (*C.value_list_t, error) {
 	return ret, nil
 }
 
-// Writer implements the api.Write interface.
-type Writer struct{}
-
-// Write implements the api.Writer interface for the collectd daemon.
-func (Writer) Write(ctx context.Context, vl *api.ValueList) error {
-	return Write(ctx, vl)
-}
-
 // Write converts a ValueList and calls the plugin_dispatch_values() function
 // of the collectd daemon.
+//
+// Use api.WriterFunc to pass this function as an api.Writer.
 func Write(ctx context.Context, vl *api.ValueList) error {
 	select {
 	case <-ctx.Done():

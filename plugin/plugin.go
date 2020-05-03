@@ -77,7 +77,7 @@ package plugin // import "collectd.org/plugin"
 // #include <dlfcn.h>
 // #include "plugin.h"
 //
-// int dispatch_values_wrapper (value_list_t const *vl);
+// int plugin_dispatch_values_wrapper(value_list_t const *vl);
 // cdtime_t plugin_get_interval_wrapper(void);
 // int timeout_wrapper(void);
 //
@@ -90,19 +90,19 @@ package plugin // import "collectd.org/plugin"
 // derive_t  value_list_get_derive  (value_list_t *, size_t);
 // gauge_t   value_list_get_gauge   (value_list_t *, size_t);
 //
-// int register_read_wrapper (char const *group, char const *name,
-//     plugin_read_cb callback,
-//     cdtime_t interval,
-//     user_data_t *ud);
+// int plugin_register_complex_read_wrapper(char const *group, char const *name,
+//                                          plugin_read_cb callback,
+//                                          cdtime_t interval, user_data_t *ud);
 // int wrap_read_callback(user_data_t *);
 //
-// int register_write_wrapper (char const *, plugin_write_cb, user_data_t *);
+// int plugin_register_write_wrapper(char const *, plugin_write_cb, user_data_t *);
 // int wrap_write_callback(data_set_t *, value_list_t *, user_data_t *);
 //
-// int register_shutdown_wrapper (char *, plugin_shutdown_cb);
+// int plugin_register_shutdown_wrapper(char *, plugin_shutdown_cb);
 // int wrap_shutdown_callback(void);
 //
-// int register_log_wrapper(char const *, plugin_log_cb, user_data_t const *);
+// int plugin_register_log_wrapper(char const *, plugin_log_cb,
+//                                 user_data_t const *);
 // int wrap_log_callback(int, char *, user_data_t *);
 //
 // typedef void (*free_func_t)(void *);
@@ -210,8 +210,8 @@ func Write(ctx context.Context, vl *api.ValueList) error {
 	}
 	defer C.free(unsafe.Pointer(vlt.values))
 
-	status, err := C.dispatch_values_wrapper(vlt)
-	return wrapCError(status, err, "dispatch_values")
+	status, err := C.plugin_dispatch_values_wrapper(vlt)
+	return wrapCError(status, err, "plugin_dispatch_values")
 }
 
 // readFuncs holds references to all read callbacks, so the garbage collector
@@ -230,11 +230,11 @@ func RegisterRead(name string, r Reader) error {
 		free_func: C.free_func_t(C.free),
 	}
 
-	status, err := C.register_read_wrapper(cGroup, cName,
+	status, err := C.plugin_register_complex_read_wrapper(cGroup, cName,
 		C.plugin_read_cb(C.wrap_read_callback),
 		C.cdtime_t(0),
 		&ud)
-	if err := wrapCError(status, err, "register_read"); err != nil {
+	if err := wrapCError(status, err, "plugin_register_complex_read"); err != nil {
 		return err
 	}
 
@@ -326,8 +326,8 @@ func RegisterWrite(name string, w api.Writer) error {
 		free_func: C.free_func_t(C.free),
 	}
 
-	status, err := C.register_write_wrapper(cName, C.plugin_write_cb(C.wrap_write_callback), &ud)
-	if err := wrapCError(status, err, "register_write"); err != nil {
+	status, err := C.plugin_register_write_wrapper(cName, C.plugin_write_cb(C.wrap_write_callback), &ud)
+	if err := wrapCError(status, err, "plugin_register_write"); err != nil {
 		return err
 	}
 
@@ -419,8 +419,8 @@ func RegisterShutdown(name string, s Shutter) error {
 		cName := C.CString(name)
 		defer C.free(unsafe.Pointer(cName))
 
-		status, err := C.register_shutdown_wrapper(cName, C.plugin_shutdown_cb(C.wrap_shutdown_callback))
-		if err := wrapCError(status, err, "register_shutdown"); err != nil {
+		status, err := C.plugin_register_shutdown_wrapper(cName, C.plugin_shutdown_cb(C.wrap_shutdown_callback))
+		if err := wrapCError(status, err, "plugin_register_shutdown"); err != nil {
 			return err
 		}
 	}
@@ -442,8 +442,8 @@ func RegisterLog(name string, l Logger) error {
 		free_func: C.free_func_t(C.free),
 	}
 
-	status, err := C.register_log_wrapper(cName, C.plugin_log_cb(C.wrap_log_callback), &ud)
-	if err := wrapCError(status, err, "register_log"); err != nil {
+	status, err := C.plugin_register_log_wrapper(cName, C.plugin_log_cb(C.wrap_log_callback), &ud)
+	if err := wrapCError(status, err, "plugin_register_log"); err != nil {
 		return err
 	}
 

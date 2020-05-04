@@ -158,6 +158,12 @@ func TestReadWrite(t *testing.T) {
 			writeErr: errors.New("write error"),
 			wantErr:  true,
 		},
+		{
+			title: "plugin name is filled in",
+			modifyVL: func(vl *api.ValueList) {
+				vl.Plugin = ""
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -199,6 +205,11 @@ func TestReadWrite(t *testing.T) {
 			}
 			if len(w.valueLists) < 1 {
 				t.FailNow()
+			}
+
+			// Expect vl.Plugin to get populated.
+			if vl.Plugin == "" {
+				vl.Plugin = "TestRead"
 			}
 
 			if got, want := w.valueLists[0], vl; !cmp.Equal(got, want) {

@@ -110,6 +110,7 @@ import "C"
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 	"unsafe"
@@ -175,12 +176,32 @@ func newValueListT(vl *api.ValueList) (*C.value_list_t, error) {
 // Write converts a ValueList and calls the plugin_dispatch_values() function
 // of the collectd daemon.
 //
+// The following fields are optional and will be filled in if empty / zero:
+//
+// · vl.Identifier.Host
+//
+// · vl.Identifier.Plugin
+//
+// · vl.Time
+//
+// · vl.Interval
+//
 // Use api.WriterFunc to pass this function as an api.Writer.
 func Write(ctx context.Context, vl *api.ValueList) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
+	}
+
+	if vl.Plugin == "" {
+		n, ok := Name(ctx)
+		if !ok {
+			return errors.New("unable to determine plugin name from context")
+		}
+		// Don't modify the argument.
+		vl = vl.Clone()
+		vl.Plugin = n
 	}
 
 	vlt, err := newValueListT(vl)

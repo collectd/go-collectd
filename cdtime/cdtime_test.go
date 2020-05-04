@@ -8,9 +8,9 @@ import (
 	"collectd.org/cdtime"
 )
 
-// TestConversion converts a time.Time to a cdtime.Time and back, expecting the
+// TestNew converts a time.Time to a cdtime.Time and back, expecting the
 // original time.Time back.
-func TestConversion(t *testing.T) {
+func TestNew(t *testing.T) {
 	cases := []string{
 		"2009-02-04T21:00:57-08:00",
 		"2009-02-04T21:00:57.1-08:00",
@@ -36,6 +36,16 @@ func TestConversion(t *testing.T) {
 		if !got.Equal(want) {
 			t.Errorf("cdtime.Time(): got %v, want %v", got, want)
 		}
+	}
+}
+
+func TestNew_zero(t *testing.T) {
+	var (
+		got  = cdtime.New(time.Time{})
+		want = cdtime.Time(0)
+	)
+	if got != want {
+		t.Errorf("cdtime.New(time.Time{}) = %v, want %v", got, want)
 	}
 }
 
@@ -73,6 +83,7 @@ func TestNewDuration(t *testing.T) {
 		{1439981880053705608 * time.Nanosecond, cdtime.Time(1546168770415815077)},
 		// 1439981880053705920 * 2^30 / 10^9 = 1546168770415815412.5
 		{1439981880053705920 * time.Nanosecond, cdtime.Time(1546168770415815413)},
+		{0, 0},
 	}
 
 	for _, tc := range cases {

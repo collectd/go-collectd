@@ -116,14 +116,14 @@ func TestReadWrite(t *testing.T) {
 			title: "derive",
 			modifyVL: func(vl *api.ValueList) {
 				vl.Type = "derive"
-				vl.Values[0] = api.Derive(42)
+				vl.Values = []api.Value{api.Derive(42)}
 			},
 		},
 		{
 			title: "counter",
 			modifyVL: func(vl *api.ValueList) {
 				vl.Type = "counter"
-				vl.Values[0] = api.Counter(42)
+				vl.Values = []api.Value{api.Counter(42)}
 			},
 		},
 		{
@@ -158,19 +158,25 @@ func TestReadWrite(t *testing.T) {
 			writeErr: errors.New("write error"),
 			wantErr:  true,
 		},
+		{
+			title: "plugin name is filled in",
+			modifyVL: func(vl *api.ValueList) {
+				vl.Plugin = ""
+			},
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.title, func(t *testing.T) {
 			defer fake.TearDown()
 
-			vl := baseVL
+			vl := baseVL.Clone()
 			if tc.modifyVL != nil {
-				tc.modifyVL(&vl)
+				tc.modifyVL(vl)
 			}
 
 			r := &testReader{
-				vl:       &vl,
+				vl:       vl,
 				wantName: "TestRead",
 				wantErr:  tc.readErr,
 			}
@@ -201,7 +207,12 @@ func TestReadWrite(t *testing.T) {
 				t.FailNow()
 			}
 
-			if got, want := w.valueLists[0], &vl; !cmp.Equal(got, want) {
+			// Expect vl.Plugin to get populated.
+			if vl.Plugin == "" {
+				vl.Plugin = "TestRead"
+			}
+
+			if got, want := w.valueLists[0], vl; !cmp.Equal(got, want) {
 				t.Errorf("ValueList differs (-want/+got): %s", cmp.Diff(want, got))
 			}
 		})

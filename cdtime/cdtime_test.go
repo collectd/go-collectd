@@ -47,6 +47,10 @@ func TestNew_zero(t *testing.T) {
 	if got != want {
 		t.Errorf("cdtime.New(time.Time{}) = %v, want %v", got, want)
 	}
+
+	if got := cdtime.Time(0).Time(); !got.IsZero() {
+		t.Errorf("cdtime.Time(0).Time() = %v, want zero value (%v)", got, time.Time{})
+	}
 }
 
 func TestMarshalJSON(t *testing.T) {

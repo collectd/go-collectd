@@ -27,6 +27,10 @@ func NewDuration(d time.Duration) Time {
 
 // Time converts and returns the time as time.Time.
 func (t Time) Time() time.Time {
+	if t == 0 {
+		return time.Time{}
+	}
+
 	s, ns := t.decompose()
 	return time.Unix(s, ns)
 }

@@ -14,6 +14,9 @@ type Time uint64
 
 // New returns a new Time representing time t.
 func New(t time.Time) Time {
+	if t.IsZero() {
+		return 0
+	}
 	return newNano(uint64(t.UnixNano()))
 }
 

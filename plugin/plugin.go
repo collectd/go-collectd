@@ -74,10 +74,11 @@ package plugin // import "collectd.org/plugin"
 // #cgo CPPFLAGS: -DHAVE_CONFIG_H
 // #cgo LDFLAGS: -ldl
 // #include <stdlib.h>
+// #include <stdbool.h>
 // #include <dlfcn.h>
 // #include "plugin.h"
 //
-// int dispatch_values_wrapper (value_list_t const *vl);
+// int plugin_dispatch_values_wrapper(value_list_t const *vl);
 // cdtime_t plugin_get_interval_wrapper(void);
 // int timeout_wrapper(void);
 //
@@ -90,19 +91,34 @@ package plugin // import "collectd.org/plugin"
 // derive_t  value_list_get_derive  (value_list_t *, size_t);
 // gauge_t   value_list_get_gauge   (value_list_t *, size_t);
 //
-// int register_read_wrapper (char const *group, char const *name,
-//     plugin_read_cb callback,
-//     cdtime_t interval,
-//     user_data_t *ud);
+// meta_data_t *meta_data_create_wrapper(void);
+// void meta_data_destroy_wrapper(meta_data_t *md);
+// int meta_data_add_boolean_wrapper(meta_data_t *md, const char *key, bool value);
+// int meta_data_add_double_wrapper(meta_data_t *md, const char *key, double value);
+// int meta_data_add_signed_int_wrapper(meta_data_t *md, const char *key, int64_t value);
+// int meta_data_add_string_wrapper(meta_data_t *md, const char *key, const char *value);
+// int meta_data_add_unsigned_int_wrapper(meta_data_t *md, const char *key, uint64_t value);
+// int meta_data_get_boolean_wrapper(meta_data_t *md, const char *key, bool *value);
+// int meta_data_get_double_wrapper(meta_data_t *md, const char *key, double *value);
+// int meta_data_get_signed_int_wrapper(meta_data_t *md, const char *key, int64_t *value);
+// int meta_data_get_string_wrapper(meta_data_t *md, const char *key, char **value);
+// int meta_data_get_unsigned_int_wrapper(meta_data_t *md, const char *key, uint64_t *value);
+// int meta_data_toc_wrapper(meta_data_t *md, char ***toc);
+// int meta_data_type_wrapper(meta_data_t *md, char const *key);
+//
+// int plugin_register_complex_read_wrapper(char const *group, char const *name,
+//                                          plugin_read_cb callback,
+//                                          cdtime_t interval, user_data_t *ud);
 // int wrap_read_callback(user_data_t *);
 //
-// int register_write_wrapper (char const *, plugin_write_cb, user_data_t *);
+// int plugin_register_write_wrapper(char const *, plugin_write_cb, user_data_t *);
 // int wrap_write_callback(data_set_t *, value_list_t *, user_data_t *);
 //
-// int register_shutdown_wrapper (char *, plugin_shutdown_cb);
+// int plugin_register_shutdown_wrapper(char *, plugin_shutdown_cb);
 // int wrap_shutdown_callback(void);
 //
-// int register_log_wrapper(char const *, plugin_log_cb, user_data_t const *);
+// int plugin_register_log_wrapper(char const *, plugin_log_cb,
+//                                 user_data_t const *);
 // int wrap_log_callback(int, char *, user_data_t *);
 //
 // typedef void (*free_func_t)(void *);
@@ -117,6 +133,7 @@ import (
 
 	"collectd.org/api"
 	"collectd.org/cdtime"
+	"collectd.org/meta"
 )
 
 // Reader defines the interface for read callbacks, i.e. Go functions that are
@@ -170,7 +187,160 @@ func newValueListT(vl *api.ValueList) (*C.value_list_t, error) {
 		}
 	}
 
+	md, err := marshalMeta(vl.Meta)
+	if err != nil {
+		return nil, err
+	}
+	ret.meta = md
+
 	return ret, nil
+}
+
+func freeValueListT(vl *C.value_list_t) {
+	C.free(unsafe.Pointer(vl.values))
+	vl.values = nil
+	if vl.meta != nil {
+		C.meta_data_destroy_wrapper(vl.meta)
+		vl.meta = nil
+	}
+}
+
+func marshalMeta(meta meta.Data) (*C.meta_data_t, error) {
+	if meta == nil {
+		return nil, nil
+	}
+
+	md, err := C.meta_data_create_wrapper()
+	if err != nil {
+		return nil, wrapCError(0, err, "meta_data_create")
+	}
+
+	for k, v := range meta {
+		if err := marshalMetaEntry(md, k, v); err != nil {
+			C.meta_data_destroy_wrapper(md)
+			return nil, err
+		}
+	}
+
+	return md, nil
+}
+
+func marshalMetaEntry(md *C.meta_data_t, key string, value meta.Entry) error {
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+
+	switch value := value.Interface().(type) {
+	case bool:
+		s, err := C.meta_data_add_boolean_wrapper(md, cKey, C.bool(value))
+		return wrapCError(s, err, "meta_data_add_boolean")
+	case float64:
+		s, err := C.meta_data_add_double_wrapper(md, cKey, C.double(value))
+		return wrapCError(s, err, "meta_data_add_double")
+	case int64:
+		s, err := C.meta_data_add_signed_int_wrapper(md, cKey, C.int64_t(value))
+		return wrapCError(s, err, "meta_data_add_signed_int")
+	case uint64:
+		s, err := C.meta_data_add_unsigned_int_wrapper(md, cKey, C.uint64_t(value))
+		return wrapCError(s, err, "meta_data_add_unsigned_int")
+	case string:
+		cValue := C.CString(value)
+		defer C.free(unsafe.Pointer(cValue))
+		s, err := C.meta_data_add_string_wrapper(md, cKey, cValue)
+		return wrapCError(s, err, "meta_data_add_string")
+	default:
+		return nil
+	}
+}
+
+// cStrarrayIndex returns the n'th string in the array, i.e. strings[n].
+func cStrarrayIndex(strings **C.char, n int) *C.char {
+	offset := uintptr(n) * unsafe.Sizeof(*strings)
+	ptr := (**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(strings)) + offset))
+	return *ptr
+}
+
+func unmarshalMeta(md *C.meta_data_t) (meta.Data, error) {
+	if md == nil {
+		return nil, nil
+	}
+
+	var ptr **C.char
+	num, err := C.meta_data_toc_wrapper(md, &ptr)
+	if num < 0 || err != nil {
+		return nil, wrapCError(num, err, "meta_data_toc")
+	}
+	if num < 1 {
+		return nil, nil
+	}
+	defer func() {
+		for i := 0; i < int(num); i++ {
+			C.free(unsafe.Pointer(cStrarrayIndex(ptr, i)))
+		}
+		C.free(unsafe.Pointer(ptr))
+	}()
+
+	ret := make(meta.Data)
+	for i := 0; i < int(num); i++ {
+		key := cStrarrayIndex(ptr, i)
+		if err := unmarshalMetaEntry(ret, md, key); err != nil {
+			return nil, err
+		}
+	}
+
+	return ret, nil
+}
+
+func unmarshalMetaEntry(goMeta meta.Data, cMeta *C.meta_data_t, key *C.char) error {
+	typ, err := C.meta_data_type_wrapper(cMeta, key)
+	if typ <= 0 || err != nil {
+		if typ == 0 && err == nil {
+			err = fmt.Errorf("no such meta data key: %q", C.GoString(key))
+		}
+		return wrapCError(0, err, "meta_data_type")
+	}
+
+	switch typ {
+	case C.MD_TYPE_BOOLEAN:
+		var v C.bool
+		s, err := C.meta_data_get_boolean_wrapper(cMeta, key, &v)
+		if err := wrapCError(s, err, "meta_data_get_boolean"); err != nil {
+			return err
+		}
+		goMeta[C.GoString(key)] = meta.Bool(bool(v))
+	case C.MD_TYPE_DOUBLE:
+		var v C.double
+		s, err := C.meta_data_get_double_wrapper(cMeta, key, &v)
+		if err := wrapCError(s, err, "meta_data_get_double"); err != nil {
+			return err
+		}
+		goMeta[C.GoString(key)] = meta.Float64(float64(v))
+	case C.MD_TYPE_SIGNED_INT:
+		var v C.int64_t
+		s, err := C.meta_data_get_signed_int_wrapper(cMeta, key, &v)
+		if err := wrapCError(s, err, "meta_data_get_signed_int"); err != nil {
+			return err
+		}
+		goMeta[C.GoString(key)] = meta.Int64(int64(v))
+	case C.MD_TYPE_STRING:
+		var v *C.char
+		s, err := C.meta_data_get_string_wrapper(cMeta, key, &v)
+		if err := wrapCError(s, err, "meta_data_get_string"); err != nil {
+			return err
+		}
+		defer C.free(unsafe.Pointer(v))
+		goMeta[C.GoString(key)] = meta.String(C.GoString(v))
+	case C.MD_TYPE_UNSIGNED_INT:
+		var v C.uint64_t
+		s, err := C.meta_data_get_unsigned_int_wrapper(cMeta, key, &v)
+		if err := wrapCError(s, err, "meta_data_get_unsigned_int"); err != nil {
+			return err
+		}
+		goMeta[C.GoString(key)] = meta.UInt64(uint64(v))
+	default:
+		Warningf("unexpected meta data type %v", typ)
+	}
+
+	return nil
 }
 
 // Write converts a ValueList and calls the plugin_dispatch_values() function
@@ -208,10 +378,10 @@ func Write(ctx context.Context, vl *api.ValueList) error {
 	if err != nil {
 		return err
 	}
-	defer C.free(unsafe.Pointer(vlt.values))
+	defer freeValueListT(vlt)
 
-	status, err := C.dispatch_values_wrapper(vlt)
-	return wrapCError(status, err, "dispatch_values")
+	status, err := C.plugin_dispatch_values_wrapper(vlt)
+	return wrapCError(status, err, "plugin_dispatch_values")
 }
 
 // readFuncs holds references to all read callbacks, so the garbage collector
@@ -230,11 +400,11 @@ func RegisterRead(name string, r Reader) error {
 		free_func: C.free_func_t(C.free),
 	}
 
-	status, err := C.register_read_wrapper(cGroup, cName,
+	status, err := C.plugin_register_complex_read_wrapper(cGroup, cName,
 		C.plugin_read_cb(C.wrap_read_callback),
 		C.cdtime_t(0),
 		&ud)
-	if err := wrapCError(status, err, "register_read"); err != nil {
+	if err := wrapCError(status, err, "plugin_register_complex_read"); err != nil {
 		return err
 	}
 
@@ -326,8 +496,8 @@ func RegisterWrite(name string, w api.Writer) error {
 		free_func: C.free_func_t(C.free),
 	}
 
-	status, err := C.register_write_wrapper(cName, C.plugin_write_cb(C.wrap_write_callback), &ud)
-	if err := wrapCError(status, err, "register_write"); err != nil {
+	status, err := C.plugin_register_write_wrapper(cName, C.plugin_write_cb(C.wrap_write_callback), &ud)
+	if err := wrapCError(status, err, "plugin_register_write"); err != nil {
 		return err
 	}
 
@@ -377,6 +547,12 @@ func wrap_write_callback(ds *C.data_set_t, cvl *C.value_list_t, ud *C.user_data_
 		vl.DSNames = append(vl.DSNames, C.GoString(&dsrc.name[0]))
 	}
 
+	m, err := unmarshalMeta(cvl.meta)
+	if err != nil {
+		Errorf("%s plugin: unmarshalMeta() failed: %v", name, err)
+	}
+	vl.Meta = m
+
 	ctx := withName(context.Background(), name)
 	if err := w.Write(ctx, vl); err != nil {
 		Errorf("%s plugin: Write() failed: %v", name, err)
@@ -419,8 +595,8 @@ func RegisterShutdown(name string, s Shutter) error {
 		cName := C.CString(name)
 		defer C.free(unsafe.Pointer(cName))
 
-		status, err := C.register_shutdown_wrapper(cName, C.plugin_shutdown_cb(C.wrap_shutdown_callback))
-		if err := wrapCError(status, err, "register_shutdown"); err != nil {
+		status, err := C.plugin_register_shutdown_wrapper(cName, C.plugin_shutdown_cb(C.wrap_shutdown_callback))
+		if err := wrapCError(status, err, "plugin_register_shutdown"); err != nil {
 			return err
 		}
 	}
@@ -442,8 +618,8 @@ func RegisterLog(name string, l Logger) error {
 		free_func: C.free_func_t(C.free),
 	}
 
-	status, err := C.register_log_wrapper(cName, C.plugin_log_cb(C.wrap_log_callback), &ud)
-	if err := wrapCError(status, err, "register_log"); err != nil {
+	status, err := C.plugin_register_log_wrapper(cName, C.plugin_log_cb(C.wrap_log_callback), &ud)
+	if err := wrapCError(status, err, "plugin_register_log"); err != nil {
 		return err
 	}
 

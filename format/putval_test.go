@@ -8,6 +8,8 @@ import (
 
 	"collectd.org/api"
 	"collectd.org/format"
+	"collectd.org/meta"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestPutval(t *testing.T) {
@@ -78,6 +80,16 @@ func TestPutval(t *testing.T) {
 			},
 			want: `PUTVAL "example.com/TestPutval/derive" interval=9.877 N:42` + "\n",
 		},
+		{
+			title: "meta_data",
+			modify: func(vl *api.ValueList) {
+				vl.Meta = meta.Data{
+					"key":     meta.String("value"),
+					"ignored": meta.Bool(true),
+				}
+			},
+			want: `PUTVAL "example.com/TestPutval/derive" interval=10.000 meta:key="value" N:42` + "\n",
+		},
 	}
 
 	for _, tc := range cases {
@@ -98,8 +110,8 @@ func TestPutval(t *testing.T) {
 				return
 			}
 
-			if got := b.String(); got != tc.want {
-				t.Errorf("Putval.Write(%#v): got %q, want %q", &vl, got, tc.want)
+			if diff := cmp.Diff(tc.want, b.String()); diff != "" {
+				t.Errorf("Putval.Write(%#v) differs (+got/-want):\n%s", &vl, diff)
 			}
 		})
 	}

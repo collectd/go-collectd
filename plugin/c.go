@@ -8,42 +8,6 @@ package plugin // import "collectd.org/plugin"
 // #include <stdlib.h>
 // #include <dlfcn.h>
 //
-// static int (*register_read_ptr) (char const *group, char const *name,
-//     plugin_read_cb callback,
-//     cdtime_t interval,
-//     user_data_t *ud) = NULL;
-// int register_read_wrapper (char const *group, char const *name,
-//     plugin_read_cb callback,
-//     cdtime_t interval,
-//     user_data_t *ud) {
-//   if (register_read_ptr == NULL) {
-//     void *hnd = dlopen(NULL, RTLD_LAZY);
-//     register_read_ptr = dlsym(hnd, "plugin_register_complex_read");
-//     dlclose(hnd);
-//   }
-//   return (*register_read_ptr) (group, name, callback, interval, ud);
-// }
-//
-// static int (*dispatch_values_ptr) (value_list_t const *vl);
-// int dispatch_values_wrapper (value_list_t const *vl) {
-//   if (dispatch_values_ptr == NULL) {
-//     void *hnd = dlopen(NULL, RTLD_LAZY);
-//     dispatch_values_ptr = dlsym(hnd, "plugin_dispatch_values");
-//     dlclose(hnd);
-//   }
-//   return (*dispatch_values_ptr) (vl);
-// }
-//
-// static cdtime_t (*plugin_get_interval_ptr)(void);
-// cdtime_t plugin_get_interval_wrapper(void) {
-//   if (plugin_get_interval_ptr == NULL) {
-//     void *hnd = dlopen(NULL, RTLD_LAZY);
-//     plugin_get_interval_ptr = dlsym(hnd, "plugin_get_interval");
-//     dlclose(hnd);
-//   }
-//   return (*plugin_get_interval_ptr) ();
-// }
-//
 // void value_list_add (value_list_t *vl, value_t v) {
 //   value_t *tmp = realloc (vl->values, sizeof(v) * (vl->values_len + 1));
 //   if (tmp == NULL) {
@@ -85,37 +49,6 @@ package plugin // import "collectd.org/plugin"
 //
 // derive_t value_list_get_derive (value_list_t *vl, size_t i) {
 //   return vl->values[i].derive;
-// }
-//
-// static int (*register_write_ptr) (char const *, plugin_write_cb, user_data_t *);
-// int register_write_wrapper (char const *name, plugin_write_cb callback, user_data_t *user_data) {
-//   if (register_write_ptr == NULL) {
-//     void *hnd = dlopen(NULL, RTLD_LAZY);
-//     register_write_ptr = dlsym(hnd, "plugin_register_write");
-//     dlclose(hnd);
-//   }
-//   return (*register_write_ptr) (name, callback, user_data);
-// }
-//
-// static int (*register_shutdown_ptr) (char *, plugin_shutdown_cb);
-// int register_shutdown_wrapper (char *name, plugin_shutdown_cb callback) {
-//   if (register_shutdown_ptr == NULL) {
-//     void *hnd = dlopen(NULL, RTLD_LAZY);
-//     register_shutdown_ptr = dlsym(hnd, "plugin_register_shutdown");
-//     dlclose(hnd);
-//   }
-//   return (*register_shutdown_ptr) (name, callback);
-//
-// }
-//
-// static int (*register_log_ptr) (char const *, plugin_log_cb, user_data_t const *);
-// int register_log_wrapper (char const *name, plugin_log_cb callback, user_data_t const *user_data) {
-//   if (register_log_ptr == NULL) {
-//     void *hnd = dlopen(NULL, RTLD_LAZY);
-//     register_log_ptr = dlsym(hnd, "plugin_register_log");
-//     dlclose(hnd);
-//   }
-//   return (*register_log_ptr) (name, callback, user_data);
 // }
 //
 // static int *timeout_ptr;

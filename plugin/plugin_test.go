@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
 	"collectd.org/api"
+	"collectd.org/meta"
 	"collectd.org/plugin"
 	"collectd.org/plugin/fake"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestInterval(t *testing.T) {
@@ -113,6 +116,12 @@ func TestReadWrite(t *testing.T) {
 			title: "gauge",
 		},
 		{
+			title: "gauge NaN",
+			modifyVL: func(vl *api.ValueList) {
+				vl.Values = []api.Value{api.Gauge(math.NaN())}
+			},
+		},
+		{
 			title: "derive",
 			modifyVL: func(vl *api.ValueList) {
 				vl.Type = "derive"
@@ -124,6 +133,54 @@ func TestReadWrite(t *testing.T) {
 			modifyVL: func(vl *api.ValueList) {
 				vl.Type = "counter"
 				vl.Values = []api.Value{api.Counter(42)}
+			},
+		},
+		{
+			title: "bool meta data",
+			modifyVL: func(vl *api.ValueList) {
+				vl.Meta = meta.Data{
+					"key": meta.Bool(true),
+				}
+			},
+		},
+		{
+			title: "float64 meta data",
+			modifyVL: func(vl *api.ValueList) {
+				vl.Meta = meta.Data{
+					"key": meta.Float64(20.0 / 3.0),
+				}
+			},
+		},
+		{
+			title: "float64 NaN meta data",
+			modifyVL: func(vl *api.ValueList) {
+				vl.Meta = meta.Data{
+					"key": meta.Float64(math.NaN()),
+				}
+			},
+		},
+		{
+			title: "int64 meta data",
+			modifyVL: func(vl *api.ValueList) {
+				vl.Meta = meta.Data{
+					"key": meta.Int64(-23),
+				}
+			},
+		},
+		{
+			title: "uint64 meta data",
+			modifyVL: func(vl *api.ValueList) {
+				vl.Meta = meta.Data{
+					"key": meta.UInt64(42),
+				}
+			},
+		},
+		{
+			title: "string meta data",
+			modifyVL: func(vl *api.ValueList) {
+				vl.Meta = meta.Data{
+					"key": meta.String(`\\\ value ///`),
+				}
 			},
 		},
 		{
@@ -212,8 +269,19 @@ func TestReadWrite(t *testing.T) {
 				vl.Plugin = "TestRead"
 			}
 
-			if got, want := w.valueLists[0], vl; !cmp.Equal(got, want) {
-				t.Errorf("ValueList differs (-want/+got): %s", cmp.Diff(want, got))
+			opts := []cmp.Option{
+				// cmp complains about meta.Entry having private fields.
+				cmp.Transformer("meta.Entry", func(e meta.Entry) interface{} {
+					return e.Interface()
+				}),
+				// transform api.Gauge to float64, so EquateNaNs applies to them.
+				cmp.Transformer("api.Gauge", func(g api.Gauge) interface{} {
+					return float64(g)
+				}),
+				cmpopts.EquateNaNs(),
+			}
+			if got, want := w.valueLists[0], vl; !cmp.Equal(got, want, opts...) {
+				t.Errorf("ValueList differs (-want/+got): %s", cmp.Diff(want, got, opts...))
 			}
 		})
 	}

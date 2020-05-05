@@ -6,10 +6,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"collectd.org/api"
+	"collectd.org/meta"
 )
 
 // Putval implements the Writer interface for PUTVAL formatted output.
@@ -32,8 +35,8 @@ func (p *Putval) Write(_ context.Context, vl *api.ValueList) error {
 		return err
 	}
 
-	_, err = fmt.Fprintf(p.w, "PUTVAL %q interval=%.3f %s\n",
-		vl.Identifier.String(), vl.Interval.Seconds(), s)
+	_, err = fmt.Fprintf(p.w, "PUTVAL %q interval=%.3f %s%s\n",
+		vl.Identifier.String(), vl.Interval.Seconds(), formatMeta(vl.Meta), s)
 	return err
 }
 
@@ -64,4 +67,26 @@ func formatTime(t time.Time) string {
 	}
 
 	return fmt.Sprintf("%.3f", float64(t.UnixNano())/1000000000.0)
+}
+
+var stringWarning sync.Once
+
+func formatMeta(m meta.Data) string {
+	if len(m) == 0 {
+		return ""
+	}
+
+	var values []string
+	for k, v := range m {
+		// collectd only supports string meta data values as of 5.11.
+		if !v.IsString() {
+			stringWarning.Do(func() {
+				log.Printf("Non-string metadata not supported yet")
+			})
+			continue
+		}
+		values = append(values, fmt.Sprintf("meta:%s=%q ", k, v.String()))
+	}
+
+	return strings.Join(values, "")
 }

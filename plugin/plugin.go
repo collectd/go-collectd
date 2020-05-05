@@ -390,9 +390,20 @@ var readFuncs = make(map[string]Reader)
 
 // RegisterRead registers a new read function with the daemon which is called
 // periodically.
-func RegisterRead(name string, r Reader) error {
-	cGroup := C.CString("golang")
-	defer C.free(unsafe.Pointer(cGroup))
+func RegisterRead(name string, r Reader, opts ...ReadOption) error {
+	ro := readOpt{
+		group: "golang",
+	}
+
+	for _, opt := range opts {
+		opt(&ro)
+	}
+
+	var cGroup *C.char
+	if ro.group != "" {
+		cGroup = C.CString(ro.group)
+		defer C.free(unsafe.Pointer(cGroup))
+	}
 
 	cName := C.CString(name)
 	ud := C.user_data_t{
@@ -402,7 +413,7 @@ func RegisterRead(name string, r Reader) error {
 
 	status, err := C.plugin_register_complex_read_wrapper(cGroup, cName,
 		C.plugin_read_cb(C.wrap_read_callback),
-		C.cdtime_t(0),
+		C.cdtime_t(ro.interval),
 		&ud)
 	if err := wrapCError(status, err, "plugin_register_complex_read"); err != nil {
 		return err
@@ -410,6 +421,33 @@ func RegisterRead(name string, r Reader) error {
 
 	readFuncs[name] = r
 	return nil
+}
+
+type readOpt struct {
+	group    string
+	interval cdtime.Time
+}
+
+// ReadOption is an option for the RegisterRead function.
+type ReadOption func(o *readOpt)
+
+// WithInterval sets the interval in which the read callback is being called.
+// If unspecified, or when set to zero, collectd's global default is used.
+//
+// The vast majority of plugins SHOULD NOT set this option explicitly and
+// respect the user's configuration by using the default instead.
+func WithInterval(d time.Duration) ReadOption {
+	return func(o *readOpt) {
+		o.interval = cdtime.NewDuration(d)
+	}
+}
+
+// WithGroup sets the group name of the read callback. If unspecified, "golang"
+// is used. Set to the empty string to clear the group name.
+func WithGroup(g string) ReadOption {
+	return func(o *readOpt) {
+		o.group = g
+	}
 }
 
 type key struct{}

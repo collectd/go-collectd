@@ -92,6 +92,59 @@ func TestLog(t *testing.T) {
 	}
 }
 
+func TestRegisterRead(t *testing.T) {
+	cases := []struct {
+		title        string
+		opts         []plugin.ReadOption
+		wantGroup    string
+		wantInterval time.Duration
+	}{
+		{
+			title:        "default case",
+			wantGroup:    "golang",
+			wantInterval: 10 * time.Second,
+		},
+		{
+			title:        "with interval",
+			opts:         []plugin.ReadOption{plugin.WithInterval(20 * time.Second)},
+			wantGroup:    "golang",
+			wantInterval: 20 * time.Second,
+		},
+		{
+			title:        "with group",
+			opts:         []plugin.ReadOption{plugin.WithGroup("testing")},
+			wantGroup:    "testing",
+			wantInterval: 10 * time.Second,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.title, func(t *testing.T) {
+			defer fake.TearDown()
+
+			if err := plugin.RegisterRead("TestRegisterRead", &testReader{}, tc.opts...); err != nil {
+				t.Fatal(err)
+			}
+
+			callbacks := fake.ReadCallbacks()
+			if got, want := len(callbacks), 1; got != want {
+				t.Errorf("len(ReadCallbacks) = %d, want %d", got, want)
+			}
+			if len(callbacks) < 1 {
+				t.FailNow()
+			}
+
+			cb := callbacks[0]
+			if got, want := cb.Group, tc.wantGroup; got != want {
+				t.Errorf("ReadCallback.Group = %q, want %q", got, want)
+			}
+			if got, want := cb.Interval.Duration(), tc.wantInterval; got != want {
+				t.Errorf("ReadCallback.Interval = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
 func TestReadWrite(t *testing.T) {
 	baseVL := api.ValueList{
 		Identifier: api.Identifier{

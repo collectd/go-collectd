@@ -296,7 +296,7 @@ func unmarshalMetaEntry(goMeta meta.Data, cMeta *C.meta_data_t, key *C.char) err
 		if typ == 0 && err == nil {
 			err = fmt.Errorf("no such meta data key: %q", C.GoString(key))
 		}
-		return wrapCError(0, err, "meta_data_type")
+		return wrapCError(typ, err, "meta_data_type")
 	}
 
 	switch typ {

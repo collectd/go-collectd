@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"bufio"
+	"bytes"
 	"fmt"
 	"log"
 	"os"

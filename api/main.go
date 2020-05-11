@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -161,6 +162,10 @@ const (
 	configTypeBoolean
 )
 
+func (cvt configValueType) String() string {
+	return [3]string{"String", "Number", "Boolean"}[cvt]
+}
+
 // ConfigValue may be either a string, float64 or boolean value.
 // This is the Go equivalent of the C type "oconfig_value_t".
 type ConfigValue struct {
@@ -182,6 +187,20 @@ func (v ConfigValue) Boolean() (bool, bool) {
 	return v.b, v.typ == configTypeBoolean
 }
 
+// Untyped returns the specific value of ConfigValue without specifying its type, useful for functions like fmt.Printf
+// which can use variables with unknown types.
+func (v ConfigValue) Untyped() interface{} {
+	switch v.typ {
+	case configTypeString:
+		return v.s
+	case configTypeNumber:
+		return v.f
+	case configTypeBoolean:
+		return v.b
+	}
+	return nil
+}
+
 // Config represents one configuration block, which may contain other configuration blocks.
 type Config struct {
 	Key      string
@@ -197,5 +216,132 @@ func (c *Config) Merge(other *Config) error {
 
 // Unmarshal applies the configuration from a Config to an arbitrary struct.
 func (c *Config) Unmarshal(v interface{}) error {
-	panic("Not yet implemented")
+	// Sanity check value of the interface
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return fmt.Errorf("can only unmarshal to a non-nil pointer") // TODO: better error message or nil if preferred
+	}
+
+	// If the target supports unmarshalling let it
+	if u, ok := v.(Unmarshaler); ok {
+		return u.UnmarshalConfig(v)
+	}
+
+	drv := rv.Elem() // get dereferenced value
+	drvk := drv.Kind()
+
+	// If config has child configs we can only unmarshal to a struct or slice of structs
+	if len(c.Children) > 0 {
+		if drvk != reflect.Struct && (drvk != reflect.Slice || drv.Elem().Kind() != reflect.Struct) {
+			return fmt.Errorf("cannot unmarshal a config with children except to a struct or slice of structs")
+		}
+	}
+
+	switch drvk {
+	case reflect.Invalid, reflect.Array, reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.UnsafePointer:
+		return fmt.Errorf("cannot unmarshal into type %s", drv.Type())
+	case reflect.Struct:
+		// Unmarshal values from config
+		if err := storeStructConfigValues(c.Values, drv); err != nil {
+			return fmt.Errorf("while unmarshalling values into %s: %s", drv.Type(), err)
+		}
+		for i := range c.Children {
+			// If a config has children but the struct has no corresponding field, or the corresponding field is an
+			// unexported struct field the child is ignored without notice.
+			if field := drv.FieldByName(c.Children[i].Key); field.IsValid() && field.CanInterface() {
+				fieldPtr := field.Addr().Interface()
+
+				if err := c.Children[i].Unmarshal(fieldPtr); err != nil {
+					return fmt.Errorf("while unmarshalling child config with key %s: %s", c.Children[i].Key, err)
+				}
+
+			}
+		}
+		return nil
+	case reflect.Slice:
+		switch rv.Elem().Kind() {
+		case reflect.Struct:
+			// Create a temporary Value of the same type as dereferenced value, then get a Value of the same type as
+			// its elements. Unmarshal into that Value and append the temporary Value to the original.
+			tv := reflect.New(drv.Type()).Elem()
+			if err := storeStructConfigValues(c.Values, tv); err != nil {
+				return fmt.Errorf("while unmarshalling values into %s: %s", drv.Type(), err)
+			}
+			for i := range c.Children {
+				// If a config has children but the struct type that is an element of this slice has no corresponding
+				// field the child is dropped without notice.
+				if field := tv.FieldByName(c.Children[i].Key); field.IsValid() {
+					if err := c.Children[i].Unmarshal(field); err != nil {
+						return fmt.Errorf("while unmarshalling child config with key %s: %s", c.Children[i].Key, err)
+					}
+				}
+			}
+			drv.Set(reflect.Append(drv, tv))
+			return nil
+		default:
+			for i := range c.Values {
+				tv := reflect.New(drv.Type().Elem()).Elem()
+				if err := storeConfigValue(c.Values[i], tv); err != nil {
+					return fmt.Errorf("while unmarhalling values into %s: %s", drv.Type(), err)
+				}
+				drv.Set(reflect.Append(drv, tv))
+			}
+			return nil
+		}
+	default: // Kind is one of the number, bool or string kinds
+		if len(c.Values) != 1 {
+			return fmt.Errorf("cannot unmarshal config with %d values into scalar type %s", len(c.Values), drv.Type())
+		}
+		return storeConfigValue(c.Values[0], drv)
+	}
+}
+
+func storeConfigValue(cv ConfigValue, v reflect.Value) error {
+	rvt := v.Type()
+	var cvt reflect.Type
+	var cvv reflect.Value
+
+	switch cv.typ {
+	case configTypeString:
+		cvt = reflect.TypeOf(cv.s)
+		cvv = reflect.ValueOf(cv.s)
+	case configTypeBoolean:
+		cvt = reflect.TypeOf(cv.b)
+		cvv = reflect.ValueOf(cv.b)
+	case configTypeNumber:
+		cvt = reflect.TypeOf(cv.f)
+		cvv = reflect.ValueOf(cv.f)
+	default:
+		panic("received ConfigValue with unknown type")
+	}
+
+	if cvt.ConvertibleTo(rvt) {
+		v.Set(cvv.Convert(rvt))
+		return nil
+	}
+	if v.Kind() == reflect.Slice && cvt.ConvertibleTo(rvt.Elem()) {
+		v.Set(reflect.Append(v, cvv.Convert(rvt.Elem())))
+		return nil
+	}
+	return fmt.Errorf("cannot unmarshal %s type config value to type %s", cv.typ, v.Type())
+}
+
+func storeStructConfigValues(cv []ConfigValue, v reflect.Value) error {
+	args := v.FieldByName("Args")
+	if !args.IsValid() {
+		return fmt.Errorf("cannot unmarshal values to a struct without an Args field")
+	}
+	if len(cv) > 1 && args.Kind() != reflect.Slice {
+		return fmt.Errorf("cannot unmarshal multiple config values to a struct with non-slice Args field")
+	}
+	for i := range cv {
+		if err := storeConfigValue(cv[i], args); err != nil {
+			return fmt.Errorf("while attempting to unmarshal config value \"%v\" in Args: %s", cv[i].Untyped(), err)
+		}
+	}
+	return nil
+}
+
+type Unmarshaler interface {
+	UnmarshalConfig(v interface{}) error
 }

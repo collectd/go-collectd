@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"collectd.org/api"
 	"github.com/google/go-cmp/cmp"
@@ -206,6 +207,143 @@ func TestFanout(t *testing.T) {
 				if diff := cmp.Diff(want, w.got); diff != "" {
 					t.Errorf("writers[%d].vl differs (+got/-want):\n%s", i, diff)
 				}
+			}
+		})
+	}
+}
+
+func TestValueList_Check(t *testing.T) {
+	baseVL := api.ValueList{
+		Identifier: api.Identifier{
+			Host:   "example.com",
+			Plugin: "TestValueList_Check",
+			Type:   "gauge",
+		},
+		Time:     time.Unix(1589283551, 0),
+		Interval: 10 * time.Second,
+		Values:   []api.Value{api.Gauge(42)},
+		DSNames:  []string{"value"},
+	}
+
+	cases := []struct {
+		title   string
+		modify  func(vl *api.ValueList)
+		wantErr bool
+	}{
+		{
+			title: "success",
+		},
+		{
+			title: "without host",
+			modify: func(vl *api.ValueList) {
+				vl.Host = ""
+			},
+			wantErr: true,
+		},
+		{
+			title: "host contains hyphen",
+			modify: func(vl *api.ValueList) {
+				vl.Host = "example-host.com"
+			},
+		},
+		{
+			title: "without plugin",
+			modify: func(vl *api.ValueList) {
+				vl.Plugin = ""
+			},
+			wantErr: true,
+		},
+		{
+			title: "plugin contains hyphen",
+			modify: func(vl *api.ValueList) {
+				vl.Plugin = "TestValueList-Check"
+			},
+			wantErr: true,
+		},
+		{
+			title: "without type",
+			modify: func(vl *api.ValueList) {
+				vl.Type = ""
+			},
+			wantErr: true,
+		},
+		{
+			title: "type contains hyphen",
+			modify: func(vl *api.ValueList) {
+				vl.Type = "http-request"
+			},
+			wantErr: true,
+		},
+		{
+			title: "without time",
+			modify: func(vl *api.ValueList) {
+				vl.Time = time.Time{}
+			},
+		},
+		{
+			title: "without interval",
+			modify: func(vl *api.ValueList) {
+				vl.Interval = 0
+			},
+			wantErr: true,
+		},
+		{
+			title: "without values",
+			modify: func(vl *api.ValueList) {
+				vl.Values = nil
+			},
+			wantErr: true,
+		},
+		{
+			title: "surplus values",
+			modify: func(vl *api.ValueList) {
+				vl.Values = []api.Value{api.Gauge(1), api.Gauge(2)}
+			},
+			wantErr: true,
+		},
+		{
+			title: "without dsnames",
+			modify: func(vl *api.ValueList) {
+				vl.DSNames = nil
+			},
+		},
+		{
+			title: "surplus dsnames",
+			modify: func(vl *api.ValueList) {
+				vl.DSNames = []string{"rx", "tx"}
+			},
+			wantErr: true,
+		},
+		{
+			title: "multiple values",
+			modify: func(vl *api.ValueList) {
+				vl.Type = "if_octets"
+				vl.Values = []api.Value{api.Derive(0), api.Derive(0)}
+				vl.DSNames = []string{"rx", "tx"}
+			},
+		},
+		{
+			title: "ds name not unique",
+			modify: func(vl *api.ValueList) {
+				vl.Type = "if_octets"
+				vl.Values = []api.Value{api.Derive(0), api.Derive(0)}
+				vl.DSNames = []string{"value", "value"}
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.title, func(t *testing.T) {
+			vl := baseVL.Clone()
+			if tc.modify != nil {
+				tc.modify(vl)
+			}
+
+			err := vl.Check()
+			if gotErr := err != nil; gotErr != tc.wantErr {
+				t.Errorf("%#v.Check() = %v, want error %v", vl, err, tc.wantErr)
+
 			}
 		})
 	}

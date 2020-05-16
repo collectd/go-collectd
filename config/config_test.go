@@ -1,4 +1,4 @@
-package api
+package config
 
 import (
 	"fmt"
@@ -23,51 +23,51 @@ type dstConf3 struct {
 func TestConfig_Unmarshal(t *testing.T) {
 	tests := []struct {
 		name    string
-		src     Config
+		src     Block
 		dst     interface{}
 		wantErr bool
 		verify  func(interface{}) error
 	}{
 		{
 			name: "Base test",
-			src: Config{
+			src: Block{
 				Key: "myPlugin",
-				Children: []Config{
+				Children: []Block{
 					{
 						Key: "Host",
-						Children: []Config{
+						Children: []Block{
 							{
 								Key: "KeepAlive",
-								Values: []ConfigValue{
+								Values: []Value{
 									{
-										typ: configTypeBoolean,
+										typ: booleanType,
 										b:   true,
 									},
 								},
 							},
 							{
 								Key: "Expect",
-								Values: []ConfigValue{
+								Values: []Value{
 									{
-										typ: configTypeString,
+										typ: stringType,
 										s:   "foo",
 									},
 								},
 							},
 							{
 								Key: "Expect",
-								Values: []ConfigValue{
+								Values: []Value{
 									{
-										typ: configTypeString,
+										typ: stringType,
 										s:   "bar",
 									},
 								},
 							},
 							{
 								Key: "Hats",
-								Values: []ConfigValue{
+								Values: []Value{
 									{
-										typ: configTypeNumber,
+										typ: numberType,
 										f:   424242.42,
 									},
 								},
@@ -101,44 +101,44 @@ func TestConfig_Unmarshal(t *testing.T) {
 		},
 		{
 			name: "Test slice of struct",
-			src: Config{
+			src: Block{
 				Key: "myPlugin",
-				Children: []Config{
+				Children: []Block{
 					{
 						Key: "Host",
-						Children: []Config{
+						Children: []Block{
 							{
 								Key: "KeepAlive",
-								Values: []ConfigValue{
+								Values: []Value{
 									{
-										typ: configTypeBoolean,
+										typ: booleanType,
 										b:   true,
 									},
 								},
 							},
 							{
 								Key: "Expect",
-								Values: []ConfigValue{
+								Values: []Value{
 									{
-										typ: configTypeString,
+										typ: stringType,
 										s:   "foo",
 									},
 								},
 							},
 							{
 								Key: "Expect",
-								Values: []ConfigValue{
+								Values: []Value{
 									{
-										typ: configTypeString,
+										typ: stringType,
 										s:   "bar",
 									},
 								},
 							},
 							{
 								Key: "Hats",
-								Values: []ConfigValue{
+								Values: []Value{
 									{
-										typ: configTypeNumber,
+										typ: numberType,
 										f:   424242.42,
 									},
 								},
@@ -171,7 +171,7 @@ func TestConfig_Unmarshal(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &Config{
+			c := &Block{
 				Key:      tt.src.Key,
 				Values:   tt.src.Values,
 				Children: tt.src.Children,

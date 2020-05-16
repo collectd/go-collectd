@@ -44,11 +44,11 @@ import (
 	"fmt"
 	"unsafe"
 
-	"collectd.org/api"
+	"collectd.org/config"
 )
 
-func unmarshalConfigBlocks(blocks *C.oconfig_item_t, blocks_num C.int) ([]api.Config, error) {
-	var ret []api.Config
+func unmarshalConfigBlocks(blocks *C.oconfig_item_t, blocks_num C.int) ([]config.Block, error) {
+	var ret []config.Block
 	for i := C.int(0); i < blocks_num; i++ {
 		offset := uintptr(i) * C.sizeof_oconfig_item_t
 		cBlock := (*C.oconfig_item_t)(unsafe.Pointer(uintptr(unsafe.Pointer(blocks)) + offset))
@@ -62,25 +62,25 @@ func unmarshalConfigBlocks(blocks *C.oconfig_item_t, blocks_num C.int) ([]api.Co
 	return ret, nil
 }
 
-func unmarshalConfigBlock(block *C.oconfig_item_t) (api.Config, error) {
-	cfg := api.Config{
+func unmarshalConfigBlock(block *C.oconfig_item_t) (config.Block, error) {
+	cfg := config.Block{
 		Key: C.GoString(block.key),
 	}
 
 	var err error
 	if cfg.Values, err = unmarshalConfigValues(block.values, block.values_num); err != nil {
-		return api.Config{}, err
+		return config.Block{}, err
 	}
 
 	if cfg.Children, err = unmarshalConfigBlocks(block.children, block.children_num); err != nil {
-		return api.Config{}, err
+		return config.Block{}, err
 	}
 
 	return cfg, nil
 }
 
-func unmarshalConfigValues(values *C.oconfig_value_t, values_num C.int) ([]api.ConfigValue, error) {
-	var ret []api.ConfigValue
+func unmarshalConfigValues(values *C.oconfig_value_t, values_num C.int) ([]config.Value, error) {
+	var ret []config.Value
 	for i := C.int(0); i < values_num; i++ {
 		offset := uintptr(i) * C.sizeof_oconfig_value_t
 		cValue := (*C.oconfig_value_t)(unsafe.Pointer(uintptr(unsafe.Pointer(values)) + offset))
@@ -94,32 +94,32 @@ func unmarshalConfigValues(values *C.oconfig_value_t, values_num C.int) ([]api.C
 	return ret, nil
 }
 
-func unmarshalConfigValue(value *C.oconfig_value_t) (api.ConfigValue, error) {
+func unmarshalConfigValue(value *C.oconfig_value_t) (config.Value, error) {
 	typ, err := C.config_value_type(value)
 	if err := wrapCError(0, err, "config_value_type"); err != nil {
-		return api.ConfigValue{}, err
+		return config.Value{}, err
 	}
 
 	switch typ {
 	case C.OCONFIG_TYPE_STRING:
 		s, err := C.config_value_string(value)
 		if err := wrapCError(0, err, "config_value_string"); err != nil {
-			return api.ConfigValue{}, err
+			return config.Value{}, err
 		}
-		return api.ConfigString(C.GoString(s)), nil
+		return config.StringValue(C.GoString(s)), nil
 	case C.OCONFIG_TYPE_NUMBER:
 		n, err := C.config_value_number(value)
 		if err := wrapCError(0, err, "config_value_number"); err != nil {
-			return api.ConfigValue{}, err
+			return config.Value{}, err
 		}
-		return api.ConfigFloat64(float64(n)), nil
+		return config.Float64Value(float64(n)), nil
 	case C.OCONFIG_TYPE_BOOLEAN:
 		b, err := C.config_value_boolean(value)
 		if err := wrapCError(0, err, "config_value_boolean"); err != nil {
-			return api.ConfigValue{}, err
+			return config.Value{}, err
 		}
-		return api.ConfigBool(bool(b)), nil
+		return config.BoolValue(bool(b)), nil
 	default:
-		return api.ConfigValue{}, fmt.Errorf("unknown config value type: %d", typ)
+		return config.Value{}, fmt.Errorf("unknown config value type: %d", typ)
 	}
 }

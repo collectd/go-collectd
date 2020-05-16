@@ -1,78 +1,78 @@
-package api
+package config
 
 import (
 	"fmt"
 	"reflect"
 )
 
-type configValueType int
+type ValueType int
 
 const (
-	configTypeString configValueType = iota
-	configTypeNumber
-	configTypeBoolean
+	stringType ValueType = iota
+	numberType
+	booleanType
 )
 
-func (cvt configValueType) String() string {
-	return [3]string{"String", "Number", "Boolean"}[cvt]
+func (cvt ValueType) String() string {
+	return [3]string{"StringValue", "Number", "Boolean"}[cvt]
 }
 
-// ConfigValue may be either a string, float64 or boolean value.
+// Value may be either a string, float64 or boolean value.
 // This is the Go equivalent of the C type "oconfig_value_t".
-type ConfigValue struct {
-	typ configValueType
+type Value struct {
+	typ ValueType
 	s   string
 	f   float64
 	b   bool
 }
 
-func ConfigString(v string) ConfigValue   { return ConfigValue{typ: configTypeString, s: v} }
-func ConfigFloat64(v float64) ConfigValue { return ConfigValue{typ: configTypeNumber, f: v} }
-func ConfigBool(v bool) ConfigValue       { return ConfigValue{typ: configTypeBoolean, b: v} }
+func StringValue(v string) Value   { return Value{typ: stringType, s: v} }
+func Float64Value(v float64) Value { return Value{typ: numberType, f: v} }
+func BoolValue(v bool) Value       { return Value{typ: booleanType, b: v} }
 
-func (cv ConfigValue) String() (string, bool) {
-	return cv.s, cv.typ == configTypeString
+func (cv Value) String() (string, bool) {
+	return cv.s, cv.typ == stringType
 }
 
-func (cv ConfigValue) Number() (float64, bool) {
-	return cv.f, cv.typ == configTypeNumber
+func (cv Value) Number() (float64, bool) {
+	return cv.f, cv.typ == numberType
 }
 
-func (cv ConfigValue) Boolean() (bool, bool) {
-	return cv.b, cv.typ == configTypeBoolean
+func (cv Value) Boolean() (bool, bool) {
+	return cv.b, cv.typ == booleanType
 }
 
-// Interface returns the specific value of ConfigValue without specifying its type, useful for functions like fmt.Printf
+// Interface returns the specific value of Value without specifying its type, useful for functions like fmt.Printf
 // which can use variables with unknown types.
-func (cv ConfigValue) Interface() interface{} {
+func (cv Value) Interface() interface{} {
 	switch cv.typ {
-	case configTypeString:
+	case stringType:
 		return cv.s
-	case configTypeNumber:
+	case numberType:
 		return cv.f
-	case configTypeBoolean:
+	case booleanType:
 		return cv.b
 	}
 	return nil
 }
 
-func (cv ConfigValue) unmarshalConfig(v reflect.Value) error {
+func (cv Value) unmarshal(v reflect.Value) error {
 	rvt := v.Type()
 	var cvt reflect.Type
 	var cvv reflect.Value
 
 	switch cv.typ {
-	case configTypeString:
+	case stringType:
 		cvt = reflect.TypeOf(cv.s)
 		cvv = reflect.ValueOf(cv.s)
-	case configTypeBoolean:
+	case booleanType:
 		cvt = reflect.TypeOf(cv.b)
 		cvv = reflect.ValueOf(cv.b)
-	case configTypeNumber:
+	case numberType:
 		cvt = reflect.TypeOf(cv.f)
 		cvv = reflect.ValueOf(cv.f)
 	default:
-		panic("received ConfigValue with unknown type")
+		panic("received Value with unknown type")
 	}
 
 	if cvt.ConvertibleTo(rvt) {
@@ -86,15 +86,15 @@ func (cv ConfigValue) unmarshalConfig(v reflect.Value) error {
 	return fmt.Errorf("cannot unmarshal %s type config value to type %s", cv.typ, v.Type())
 }
 
-// Config represents one configuration block, which may contain other configuration blocks.
-type Config struct {
+// Block represents one configuration block, which may contain other configuration blocks.
+type Block struct {
 	Key      string
-	Values   []ConfigValue
-	Children []Config
+	Values   []Value
+	Children []Block
 }
 
-// Unmarshal applies the configuration from a Config to an arbitrary struct.
-func (c *Config) Unmarshal(v interface{}) error {
+// Unmarshal applies the configuration from a Block to an arbitrary struct.
+func (c *Block) Unmarshal(v interface{}) error {
 	// If the target supports unmarshalling let it
 	if u, ok := v.(Unmarshaler); ok {
 		return u.UnmarshalConfig(v)
@@ -109,7 +109,7 @@ func (c *Config) Unmarshal(v interface{}) error {
 	drv := rv.Elem() // get dereferenced value
 	drvk := drv.Kind()
 
-	// If config has child configs we can only unmarshal to a struct or slice of structs
+	// If config block has child blocks we can only unmarshal to a struct or slice of structs
 	if len(c.Children) > 0 {
 		if drvk != reflect.Struct && (drvk != reflect.Slice || drv.Type().Elem().Kind() != reflect.Struct) {
 			return fmt.Errorf("cannot unmarshal a config with children except to a struct or slice of structs")
@@ -128,7 +128,7 @@ func (c *Config) Unmarshal(v interface{}) error {
 			if field := drv.FieldByName(child.Key); field.IsValid() && field.CanInterface() {
 				if err := child.Unmarshal(field.Addr().Interface()); err != nil {
 					//	if err := child.Unmarshal(field.Interface()); err != nil {
-					return fmt.Errorf("in child config %s: %s", child.Key, err)
+					return fmt.Errorf("in child config block %s: %s", child.Key, err)
 				}
 			} else {
 				return fmt.Errorf("found child config block with no corresponding field: %s", child.Key)
@@ -149,7 +149,7 @@ func (c *Config) Unmarshal(v interface{}) error {
 		default:
 			for _, cv := range c.Values {
 				tv := reflect.New(drv.Type().Elem()).Elem()
-				if err := cv.unmarshalConfig(tv); err != nil {
+				if err := cv.unmarshal(tv); err != nil {
 					return fmt.Errorf("while unmarhalling values into %s: %s", drv.Type(), err)
 				}
 				drv.Set(reflect.Append(drv, tv))
@@ -160,13 +160,13 @@ func (c *Config) Unmarshal(v interface{}) error {
 		if len(c.Values) != 1 {
 			return fmt.Errorf("cannot unmarshal config option with %d values into scalar type %s", len(c.Values), drv.Type())
 		}
-		return c.Values[0].unmarshalConfig(drv)
+		return c.Values[0].unmarshal(drv)
 	default:
 		return fmt.Errorf("cannot unmarshal into type %s", drv.Type())
 	}
 }
 
-func storeStructConfigValues(cvs []ConfigValue, v reflect.Value) error {
+func storeStructConfigValues(cvs []Value, v reflect.Value) error {
 	if len(cvs) == 0 {
 		return nil
 	}
@@ -178,7 +178,7 @@ func storeStructConfigValues(cvs []ConfigValue, v reflect.Value) error {
 		return fmt.Errorf("cannot unmarshal config block with multiple values to a struct with non-slice Args field")
 	}
 	for _, cv := range cvs {
-		if err := cv.unmarshalConfig(args); err != nil {
+		if err := cv.unmarshal(args); err != nil {
 			return fmt.Errorf("while attempting to unmarshal config value \"%v\" in Args: %s", cv.Interface(), err)
 		}
 	}

@@ -122,6 +122,7 @@ import (
 
 	"collectd.org/api"
 	"collectd.org/cdtime"
+	"collectd.org/config"
 )
 
 // Reader defines the interface for read callbacks, i.e. Go functions that are
@@ -439,7 +440,7 @@ type Configurer interface {
 // so they're tracked together for a convenient Unmarshal call.
 type configPair struct {
 	f Configurer
-	c api.Config
+	c config.Block
 }
 
 var configureFuncs = make(map[string]configPair)

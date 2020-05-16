@@ -26,6 +26,10 @@ type ConfigValue struct {
 	b   bool
 }
 
+func ConfigString(v string) ConfigValue   { return ConfigValue{typ: configTypeString, s: v} }
+func ConfigFloat64(v float64) ConfigValue { return ConfigValue{typ: configTypeNumber, f: v} }
+func ConfigBool(v bool) ConfigValue       { return ConfigValue{typ: configTypeBoolean, b: v} }
+
 func (cv ConfigValue) String() (string, bool) {
 	return cv.s, cv.typ == configTypeString
 }

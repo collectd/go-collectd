@@ -439,7 +439,7 @@ type Configurer interface {
 // so they're tracked together for a convenient Unmarshal call.
 type configPair struct {
 	f Configurer
-	c Config
+	c api.Config
 }
 
 var configureFuncs = make(map[string]configPair)

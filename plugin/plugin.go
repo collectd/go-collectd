@@ -439,12 +439,12 @@ type Configurer interface {
 
 // Configurers are registered once but Configs may be received multiple times and merged together before unmarshalling,
 // so they're tracked together for a convenient Unmarshal call.
-type configPair struct {
-	f Configurer
-	c config.Block
+type configFunc struct {
+	Configurer
+	cfg config.Block
 }
 
-var configureFuncs = make(map[string]configPair)
+var configureFuncs = make(map[string]*configFunc)
 
 // RegisterConfig registers a configuration-receiving function with the daemon.
 func RegisterConfig(name string, c Configurer) error {
@@ -461,8 +461,8 @@ func RegisterConfig(name string, c Configurer) error {
 		return err
 	}
 
-	configureFuncs[name] = configPair{
-		f: c,
+	configureFuncs[name] = &configFunc{
+		Configurer: c,
 	}
 	return nil
 }
@@ -488,13 +488,13 @@ func wrap_configure_callback(ci *C.oconfig_item_t) C.int {
 	}
 	plugin := block.Values[0].String()
 
-	pair, ok := configureFuncs[plugin]
+	f, ok := configureFuncs[plugin]
 	if !ok {
 		Errorf("callback for plugin %q not found", plugin)
 		return -1
 	}
 
-	if err := pair.c.Merge(block); err != nil {
+	if err := f.cfg.Merge(block); err != nil {
 		Errorf("merging config blocks failed: %v", err)
 		return -1
 	}

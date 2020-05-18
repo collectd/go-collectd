@@ -434,7 +434,7 @@ func wrap_log_callback(sev C.int, msg *C.char, ud *C.user_data_t) C.int {
 
 // Configurer implements a Configure callback.
 type Configurer interface {
-	Configure(context.Context, interface{})
+	Configure(context.Context, config.Block) error
 }
 
 // Configurers are registered once but Configs may be received multiple times and merged together before unmarshalling,

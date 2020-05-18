@@ -7,22 +7,18 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-type ValueType int
+type valueType int
 
 const (
-	stringType ValueType = iota
+	stringType valueType = iota
 	numberType
 	booleanType
 )
 
-func (cvt ValueType) String() string {
-	return [3]string{"StringValue", "Number", "Boolean"}[cvt]
-}
-
 // Value may be either a string, float64 or boolean value.
 // This is the Go equivalent of the C type "oconfig_value_t".
 type Value struct {
-	typ ValueType
+	typ valueType
 	s   string
 	f   float64
 	b   bool
@@ -85,7 +81,7 @@ func (cv Value) unmarshal(v reflect.Value) error {
 		v.Set(reflect.Append(v, cvv.Convert(rvt.Elem())))
 		return nil
 	}
-	return fmt.Errorf("cannot unmarshal %s type config value to type %s", cv.typ, v.Type())
+	return fmt.Errorf("cannot unmarshal a %T to a %s", cv.Interface(), v.Type())
 }
 
 // Block represents one configuration block, which may contain other configuration blocks.

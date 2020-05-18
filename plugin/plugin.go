@@ -117,6 +117,7 @@ import "C"
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -445,10 +446,15 @@ type configPair struct {
 
 var configureFuncs = make(map[string]configPair)
 
-// RegisterConfigure registers a configuration-receiving function with the daemon.
-func RegisterConfigure(name string, c Configurer) error {
+// RegisterConfig registers a configuration-receiving function with the daemon.
+func RegisterConfig(name string, c Configurer) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
+
+	// TODO: Register an init callback for this function.
+	// When registering an init callback, we need to ensure that there is
+	// no name clash with a different Go-based plugin. Since Go plugins
+	// don't have access to init callbacks, reusing `name` should work.
 
 	status, err := C.register_complex_config_wrapper(cName, C.plugin_complex_config_cb(C.wrap_configure_callback))
 	if err := wrapCError(status, err, "register_configure"); err != nil {
@@ -463,7 +469,36 @@ func RegisterConfigure(name string, c Configurer) error {
 
 //export wrap_configure_callback
 func wrap_configure_callback(ci *C.oconfig_item_t) C.int {
-	panic("Not yet implemented")
+	block, err := unmarshalConfigBlock(ci)
+	if err != nil {
+		Errorf("unmarshalConfigBlock: %v", err)
+		return -1
+	}
+
+	key := strings.ToLower(block.Key)
+	if key != "plugin" {
+		Errorf("got config block %q, want %q", block.Key, "Plugin")
+		return -1
+	}
+	block.Key = key
+
+	if len(block.Values) != 1 || !block.Values[0].IsString() {
+		Errorf("got Values=%v, want single string value", block)
+		return -1
+	}
+	plugin := block.Values[0].String()
+
+	pair, ok := configureFuncs[plugin]
+	if !ok {
+		Errorf("callback for plugin %q not found", plugin)
+		return -1
+	}
+
+	if err := pair.c.Merge(block); err != nil {
+		Errorf("merging config blocks failed: %v", err)
+		return -1
+	}
+
 	return 0
 }
 

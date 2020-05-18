@@ -28,8 +28,24 @@ func StringValue(v string) Value   { return Value{typ: stringType, s: v} }
 func Float64Value(v float64) Value { return Value{typ: numberType, f: v} }
 func BoolValue(v bool) Value       { return Value{typ: booleanType, b: v} }
 
-func (cv Value) String() (string, bool) {
-	return cv.s, cv.typ == stringType
+func (cv Value) GoString() string {
+	switch cv.typ {
+	case stringType:
+		return fmt.Sprintf("config.StringValue(%q)", cv.s)
+	case numberType:
+		return fmt.Sprintf("config.Float64Value(%v)", cv.f)
+	case booleanType:
+		return fmt.Sprintf("config.BoolValue(%v)", cv.b)
+	}
+	return "<invalid config.Value>"
+}
+
+func (cv Value) IsString() bool {
+	return cv.typ == stringType
+}
+
+func (cv Value) String() string {
+	return fmt.Sprintf("%v", cv.Interface())
 }
 
 func (cv Value) Number() (float64, bool) {

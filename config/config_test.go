@@ -329,3 +329,89 @@ func TestValue_Interface(t *testing.T) {
 		}
 	}
 }
+
+func TestBlock_Merge(t *testing.T) {
+	makeBlock := func(key, value string, children []Block) Block {
+		return Block{
+			Key:      key,
+			Values:   []Value{StringValue(value)},
+			Children: children,
+		}
+	}
+
+	makeChildren := func(names ...string) []Block {
+		var ret []Block
+		for _, n := range names {
+			ret = append(ret, makeBlock(n, "value", nil))
+		}
+		return ret
+	}
+
+	cases := []struct {
+		name     string
+		in0, in1 Block
+		want     Block
+		wantErr  bool
+	}{
+		{
+			name: "success",
+			in0:  makeBlock("Plugin", "test", makeChildren("foo")),
+			in1:  makeBlock("Plugin", "test", makeChildren("bar")),
+			want: makeBlock("Plugin", "test", makeChildren("foo", "bar")),
+		},
+		{
+			name: "destination without children",
+			in0:  makeBlock("Plugin", "test", nil),
+			in1:  makeBlock("Plugin", "test", makeChildren("bar")),
+			want: makeBlock("Plugin", "test", makeChildren("bar")),
+		},
+		{
+			name: "source without children",
+			in0:  makeBlock("Plugin", "test", makeChildren("foo")),
+			in1:  makeBlock("Plugin", "test", nil),
+			want: makeBlock("Plugin", "test", makeChildren("foo")),
+		},
+		{
+			name: "source and destination without children",
+			in0:  makeBlock("Plugin", "test", nil),
+			in1:  makeBlock("Plugin", "test", nil),
+			want: makeBlock("Plugin", "test", nil),
+		},
+		{
+			name: "merge into zero value",
+			in0:  Block{},
+			in1:  makeBlock("Plugin", "test", makeChildren("foo")),
+			want: makeBlock("Plugin", "test", makeChildren("foo")),
+		},
+		{
+			name:    "key mismatch",
+			in0:     makeBlock("Plugin", "test", nil),
+			in1:     makeBlock("SomethingElse", "test", nil),
+			wantErr: true,
+		},
+		{
+			name:    "value mismatch",
+			in0:     makeBlock("Plugin", "test", nil),
+			in1:     makeBlock("Plugin", "prod", nil),
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Logf("block = %#v", tc.in0)
+			err := tc.in0.Merge(tc.in1)
+			if gotErr := err != nil; gotErr != tc.wantErr {
+				t.Errorf("block.Merge() = %v, want error %v", err, tc.wantErr)
+			}
+			if tc.wantErr {
+				return
+			}
+
+			if diff := cmp.Diff(tc.want, tc.in0, cmp.AllowUnexported(Value{})); diff != "" {
+				t.Errorf("other block = %#v", tc.in1)
+				t.Errorf("block.Merge() differd (+got/-want)\n%s", diff)
+			}
+		})
+	}
+}

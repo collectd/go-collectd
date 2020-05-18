@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 type ValueType int
@@ -91,6 +93,24 @@ type Block struct {
 	Key      string
 	Values   []Value
 	Children []Block
+}
+
+// Merge appends other's Children to b's Children. If Key or Values differ, an
+// error is returned.
+func (b *Block) Merge(other Block) error {
+	// If b is the zero value, we set it to other.
+	if b.Key == "" && b.Values == nil && b.Children == nil {
+		*b = other
+		return nil
+	}
+
+	if b.Key != other.Key || !cmp.Equal(b.Values, other.Values, cmp.AllowUnexported(Value{})) {
+		return fmt.Errorf("blocks differ: got {key:%v values:%v}, want {key:%v, values:%v}",
+			other.Key, other.Values, b.Key, b.Values)
+	}
+
+	b.Children = append(b.Children, other.Children...)
+	return nil
 }
 
 // Unmarshal applies the configuration from a Block to an arbitrary struct.

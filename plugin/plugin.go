@@ -108,6 +108,7 @@ package plugin // import "collectd.org/plugin"
 //
 // int register_complex_config_wrapper(char const *, plugin_complex_config_cb);
 // int wrap_configure_callback(oconfig_item_t *);
+// int dispatch_configurations(void);
 //
 // int register_init_wrapper (const char *name, plugin_init_cb callback);
 //
@@ -118,6 +119,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -444,17 +446,24 @@ type configFunc struct {
 	cfg config.Block
 }
 
-var configureFuncs = make(map[string]*configFunc)
+var (
+	configureFuncs     = make(map[string]*configFunc)
+	registerConfigInit sync.Once
+)
 
 // RegisterConfig registers a configuration-receiving function with the daemon.
 func RegisterConfig(name string, c Configurer) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 
-	// TODO: Register an init callback for this function.
-	// When registering an init callback, we need to ensure that there is
-	// no name clash with a different Go-based plugin. Since Go plugins
-	// don't have access to init callbacks, reusing `name` should work.
+	var regErr error
+	registerConfigInit.Do(func() {
+		status, err := C.register_init_wrapper(cName, C.plugin_init_cb(C.dispatch_configurations))
+		regErr = wrapCError(status, err, "plugin_register_init")
+	})
+	if regErr != nil {
+		return regErr
+	}
 
 	status, err := C.register_complex_config_wrapper(cName, C.plugin_complex_config_cb(C.wrap_configure_callback))
 	if err := wrapCError(status, err, "register_configure"); err != nil {
@@ -500,6 +509,19 @@ func wrap_configure_callback(ci *C.oconfig_item_t) C.int {
 	}
 
 	return 0
+}
+
+//export dispatch_configurations
+func dispatch_configurations() C.int {
+	var ret C.int
+	for name, f := range configureFuncs {
+		ctx := withName(context.Background(), name)
+		if err := f.Configure(ctx, f.cfg); err != nil {
+			Errorf("%s plugin: Configure() failed: %v", name, err)
+			ret = -1
+		}
+	}
+	return ret
 }
 
 func wrapCError(status C.int, err error, name string) error {

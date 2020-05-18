@@ -3,24 +3,22 @@ package config
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/google/go-cmp/cmp"
 )
 
-type ValueType int
+type valueType int
 
 const (
-	stringType ValueType = iota
+	stringType valueType = iota
 	numberType
 	booleanType
 )
 
-func (cvt ValueType) String() string {
-	return [3]string{"StringValue", "Number", "Boolean"}[cvt]
-}
-
 // Value may be either a string, float64 or boolean value.
 // This is the Go equivalent of the C type "oconfig_value_t".
 type Value struct {
-	typ ValueType
+	typ valueType
 	s   string
 	f   float64
 	b   bool
@@ -30,8 +28,24 @@ func StringValue(v string) Value   { return Value{typ: stringType, s: v} }
 func Float64Value(v float64) Value { return Value{typ: numberType, f: v} }
 func BoolValue(v bool) Value       { return Value{typ: booleanType, b: v} }
 
-func (cv Value) String() (string, bool) {
-	return cv.s, cv.typ == stringType
+func (cv Value) GoString() string {
+	switch cv.typ {
+	case stringType:
+		return fmt.Sprintf("config.StringValue(%q)", cv.s)
+	case numberType:
+		return fmt.Sprintf("config.Float64Value(%v)", cv.f)
+	case booleanType:
+		return fmt.Sprintf("config.BoolValue(%v)", cv.b)
+	}
+	return "<invalid config.Value>"
+}
+
+func (cv Value) IsString() bool {
+	return cv.typ == stringType
+}
+
+func (cv Value) String() string {
+	return fmt.Sprintf("%v", cv.Interface())
 }
 
 func (cv Value) Number() (float64, bool) {
@@ -72,7 +86,7 @@ func (cv Value) unmarshal(v reflect.Value) error {
 		cvt = reflect.TypeOf(cv.f)
 		cvv = reflect.ValueOf(cv.f)
 	default:
-		panic("received Value with unknown type")
+		return fmt.Errorf("unexpected Value type: %v", cv.typ)
 	}
 
 	if cvt.ConvertibleTo(rvt) {
@@ -83,7 +97,7 @@ func (cv Value) unmarshal(v reflect.Value) error {
 		v.Set(reflect.Append(v, cvv.Convert(rvt.Elem())))
 		return nil
 	}
-	return fmt.Errorf("cannot unmarshal %s type config value to type %s", cv.typ, v.Type())
+	return fmt.Errorf("cannot unmarshal a %T to a %s", cv.Interface(), v.Type())
 }
 
 // Block represents one configuration block, which may contain other configuration blocks.
@@ -91,6 +105,24 @@ type Block struct {
 	Key      string
 	Values   []Value
 	Children []Block
+}
+
+// Merge appends other's Children to b's Children. If Key or Values differ, an
+// error is returned.
+func (b *Block) Merge(other Block) error {
+	// If b is the zero value, we set it to other.
+	if b.Key == "" && b.Values == nil && b.Children == nil {
+		*b = other
+		return nil
+	}
+
+	if b.Key != other.Key || !cmp.Equal(b.Values, other.Values, cmp.AllowUnexported(Value{})) {
+		return fmt.Errorf("blocks differ: got {key:%v values:%v}, want {key:%v, values:%v}",
+			other.Key, other.Values, b.Key, b.Values)
+	}
+
+	b.Children = append(b.Children, other.Children...)
+	return nil
 }
 
 // Unmarshal applies the configuration from a Block to an arbitrary struct.

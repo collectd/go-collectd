@@ -108,6 +108,7 @@ package plugin // import "collectd.org/plugin"
 //
 // int register_complex_config_wrapper(char const *, plugin_complex_config_cb);
 // int wrap_configure_callback(oconfig_item_t *);
+// int dispatch_configurations(void);
 //
 // int register_init_wrapper (const char *name, plugin_init_cb callback);
 //
@@ -117,6 +118,8 @@ import "C"
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -433,38 +436,92 @@ func wrap_log_callback(sev C.int, msg *C.char, ud *C.user_data_t) C.int {
 
 // Configurer implements a Configure callback.
 type Configurer interface {
-	Configure(context.Context, interface{})
+	Configure(context.Context, config.Block) error
 }
 
 // Configurers are registered once but Configs may be received multiple times and merged together before unmarshalling,
 // so they're tracked together for a convenient Unmarshal call.
-type configPair struct {
-	f Configurer
-	c config.Block
+type configFunc struct {
+	Configurer
+	cfg config.Block
 }
 
-var configureFuncs = make(map[string]configPair)
+var (
+	configureFuncs     = make(map[string]*configFunc)
+	registerConfigInit sync.Once
+)
 
-// RegisterConfigure registers a configuration-receiving function with the daemon.
-func RegisterConfigure(name string, c Configurer) error {
+// RegisterConfig registers a configuration-receiving function with the daemon.
+func RegisterConfig(name string, c Configurer) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
+
+	var regErr error
+	registerConfigInit.Do(func() {
+		status, err := C.register_init_wrapper(cName, C.plugin_init_cb(C.dispatch_configurations))
+		regErr = wrapCError(status, err, "plugin_register_init")
+	})
+	if regErr != nil {
+		return regErr
+	}
 
 	status, err := C.register_complex_config_wrapper(cName, C.plugin_complex_config_cb(C.wrap_configure_callback))
 	if err := wrapCError(status, err, "register_configure"); err != nil {
 		return err
 	}
 
-	configureFuncs[name] = configPair{
-		f: c,
+	configureFuncs[name] = &configFunc{
+		Configurer: c,
 	}
 	return nil
 }
 
 //export wrap_configure_callback
 func wrap_configure_callback(ci *C.oconfig_item_t) C.int {
-	panic("Not yet implemented")
+	block, err := unmarshalConfigBlock(ci)
+	if err != nil {
+		Errorf("unmarshalConfigBlock: %v", err)
+		return -1
+	}
+
+	key := strings.ToLower(block.Key)
+	if key != "plugin" {
+		Errorf("got config block %q, want %q", block.Key, "Plugin")
+		return -1
+	}
+	block.Key = key
+
+	if len(block.Values) != 1 || !block.Values[0].IsString() {
+		Errorf("got Values=%v, want single string value", block)
+		return -1
+	}
+	plugin := block.Values[0].String()
+
+	f, ok := configureFuncs[plugin]
+	if !ok {
+		Errorf("callback for plugin %q not found", plugin)
+		return -1
+	}
+
+	if err := f.cfg.Merge(block); err != nil {
+		Errorf("merging config blocks failed: %v", err)
+		return -1
+	}
+
 	return 0
+}
+
+//export dispatch_configurations
+func dispatch_configurations() C.int {
+	var ret C.int
+	for name, f := range configureFuncs {
+		ctx := withName(context.Background(), name)
+		if err := f.Configure(ctx, f.cfg); err != nil {
+			Errorf("%s plugin: Configure() failed: %v", name, err)
+			ret = -1
+		}
+	}
+	return ret
 }
 
 func wrapCError(status C.int, err error, name string) error {

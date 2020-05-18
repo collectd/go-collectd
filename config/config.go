@@ -70,7 +70,7 @@ func (cv Value) unmarshal(v reflect.Value) error {
 		cvt = reflect.TypeOf(cv.f)
 		cvv = reflect.ValueOf(cv.f)
 	default:
-		panic("received Value with unknown type")
+		return fmt.Errorf("unexpected Value type: %v", cv.typ)
 	}
 
 	if cvt.ConvertibleTo(rvt) {

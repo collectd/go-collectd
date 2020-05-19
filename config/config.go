@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/google/go-cmp/cmp"
@@ -32,6 +33,48 @@ func Float64Value(v float64) Value { return Value{typ: numberType, f: v} }
 
 // BoolValue returns a new boolean Value.
 func BoolValue(v bool) Value { return Value{typ: booleanType, b: v} }
+
+// Values allocates and initializes a []Value slice. "string", "float64", and
+// "bool" are mapped directly. "[]byte" is converted to a string. Numeric types
+// (except complex numbers) are converted to float64. All other values are
+// converted to string using the `%v` format.
+func Values(values ...interface{}) []Value {
+	var ret []Value
+	for _, v := range values {
+		if v == nil {
+			ret = append(ret, Float64Value(math.NaN()))
+			continue
+		}
+
+		// check for exact matches first.
+		switch v := v.(type) {
+		case string:
+			ret = append(ret, StringValue(v))
+			continue
+		case []byte:
+			ret = append(ret, StringValue(string(v)))
+			continue
+		case bool:
+			ret = append(ret, BoolValue(v))
+			continue
+		}
+
+		// Handle numerical types that can be converted to float64:
+		var (
+			valueType   = reflect.TypeOf(v)
+			float64Type = reflect.TypeOf(float64(0))
+		)
+		if valueType.ConvertibleTo(float64Type) {
+			v := reflect.ValueOf(v).Convert(float64Type).Interface().(float64)
+			ret = append(ret, Float64Value(v))
+			continue
+		}
+
+		// Last resort: convert to a string using the "fmt" package:
+		ret = append(ret, StringValue(fmt.Sprintf("%v", v)))
+	}
+	return ret
+}
 
 // GoString returns a Go statement for creating cv.
 func (cv Value) GoString() string {

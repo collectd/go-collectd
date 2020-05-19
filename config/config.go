@@ -24,10 +24,16 @@ type Value struct {
 	b   bool
 }
 
-func StringValue(v string) Value   { return Value{typ: stringType, s: v} }
-func Float64Value(v float64) Value { return Value{typ: numberType, f: v} }
-func BoolValue(v bool) Value       { return Value{typ: booleanType, b: v} }
+// StringValue returns a new string Value.
+func StringValue(v string) Value { return Value{typ: stringType, s: v} }
 
+// Float64Value returns a new string Value.
+func Float64Value(v float64) Value { return Value{typ: numberType, f: v} }
+
+// BoolValue returns a new boolean Value.
+func BoolValue(v bool) Value { return Value{typ: booleanType, b: v} }
+
+// GoString returns a Go statement for creating cv.
 func (cv Value) GoString() string {
 	switch cv.typ {
 	case stringType:
@@ -40,18 +46,22 @@ func (cv Value) GoString() string {
 	return "<invalid config.Value>"
 }
 
+// IsString returns true if cv is a string Value.
 func (cv Value) IsString() bool {
 	return cv.typ == stringType
 }
 
+// String returns Value as a string. Non-string values are formatted according to their default format.
 func (cv Value) String() string {
 	return fmt.Sprintf("%v", cv.Interface())
 }
 
+// Number returns the value of a number Value.
 func (cv Value) Number() (float64, bool) {
 	return cv.f, cv.typ == numberType
 }
 
+// Boolean returns the value of a bool Value.
 func (cv Value) Boolean() (bool, bool) {
 	return cv.b, cv.typ == booleanType
 }
@@ -217,6 +227,7 @@ func storeStructConfigValues(cvs []Value, v reflect.Value) error {
 	return nil
 }
 
+// Unmarshaler is the interface implemented by types that can unmarshal a Block representation of themselves.
 type Unmarshaler interface {
 	UnmarshalConfig(v interface{}) error
 }

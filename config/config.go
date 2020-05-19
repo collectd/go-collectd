@@ -136,7 +136,7 @@ func (b *Block) Merge(other Block) error {
 }
 
 // Unmarshal applies the configuration from a Block to an arbitrary struct.
-func (c *Block) Unmarshal(v interface{}) error {
+func (b *Block) Unmarshal(v interface{}) error {
 	// If the target supports unmarshalling let it
 	if u, ok := v.(Unmarshaler); ok {
 		return u.UnmarshalConfig(v)
@@ -152,7 +152,7 @@ func (c *Block) Unmarshal(v interface{}) error {
 	drvk := drv.Kind()
 
 	// If config block has child blocks we can only unmarshal to a struct or slice of structs
-	if len(c.Children) > 0 {
+	if len(b.Children) > 0 {
 		if drvk != reflect.Struct && (drvk != reflect.Slice || drv.Type().Elem().Kind() != reflect.Struct) {
 			return fmt.Errorf("cannot unmarshal a config with children except to a struct or slice of structs")
 		}
@@ -161,10 +161,10 @@ func (c *Block) Unmarshal(v interface{}) error {
 	switch drvk {
 	case reflect.Struct:
 		// Unmarshal values from config
-		if err := storeStructConfigValues(c.Values, drv); err != nil {
+		if err := storeStructConfigValues(b.Values, drv); err != nil {
 			return fmt.Errorf("while unmarshalling config block values into %s: %s", drv.Type(), err)
 		}
-		for _, child := range c.Children {
+		for _, child := range b.Children {
 			// If a config has children but the struct has no corresponding field, or the corresponding field is an
 			// unexported struct field we throw an error.
 			if field := drv.FieldByName(child.Key); field.IsValid() && field.CanInterface() {
@@ -183,13 +183,13 @@ func (c *Block) Unmarshal(v interface{}) error {
 			// Create a temporary Value of the same type as dereferenced value, then get a Value of the same type as
 			// its elements. Unmarshal into that Value and append the temporary Value to the original.
 			tv := reflect.New(drv.Type().Elem()).Elem()
-			if err := c.Unmarshal(tv.Addr().Interface()); err != nil {
+			if err := b.Unmarshal(tv.Addr().Interface()); err != nil {
 				return fmt.Errorf("unmarshaling into temporary value failed: %s", err)
 			}
 			drv.Set(reflect.Append(drv, tv))
 			return nil
 		default:
-			for _, cv := range c.Values {
+			for _, cv := range b.Values {
 				tv := reflect.New(drv.Type().Elem()).Elem()
 				if err := cv.unmarshal(tv); err != nil {
 					return fmt.Errorf("while unmarhalling values into %s: %s", drv.Type(), err)
@@ -199,10 +199,10 @@ func (c *Block) Unmarshal(v interface{}) error {
 			return nil
 		}
 	case reflect.String, reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Float32, reflect.Float64:
-		if len(c.Values) != 1 {
-			return fmt.Errorf("cannot unmarshal config option with %d values into scalar type %s", len(c.Values), drv.Type())
+		if len(b.Values) != 1 {
+			return fmt.Errorf("cannot unmarshal config option with %d values into scalar type %s", len(b.Values), drv.Type())
 		}
-		return c.Values[0].unmarshal(drv)
+		return b.Values[0].unmarshal(drv)
 	default:
 		return fmt.Errorf("cannot unmarshal into type %s", drv.Type())
 	}

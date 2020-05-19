@@ -28,10 +28,10 @@ type Value struct {
 // StringValue returns a new string Value.
 func StringValue(v string) Value { return Value{typ: stringType, s: v} }
 
-// Float64Value returns a new string Value.
+// Float64Value returns a new float64 Value.
 func Float64Value(v float64) Value { return Value{typ: numberType, f: v} }
 
-// BoolValue returns a new boolean Value.
+// BoolValue returns a new bool Value.
 func BoolValue(v bool) Value { return Value{typ: booleanType, b: v} }
 
 // Values allocates and initializes a []Value slice. "string", "float64", and
@@ -94,23 +94,25 @@ func (cv Value) IsString() bool {
 	return cv.typ == stringType
 }
 
-// String returns Value as a string. Non-string values are formatted according to their default format.
+// String returns Value as a string.
+// Non-string values are formatted according to their default format.
 func (cv Value) String() string {
 	return fmt.Sprintf("%v", cv.Interface())
 }
 
-// Number returns the value of a number Value.
-func (cv Value) Number() (float64, bool) {
+// Float64 returns the value of a float64 Value.
+func (cv Value) Float64() (float64, bool) {
 	return cv.f, cv.typ == numberType
 }
 
-// Boolean returns the value of a bool Value.
-func (cv Value) Boolean() (bool, bool) {
+// Bool returns the value of a bool Value.
+func (cv Value) Bool() (bool, bool) {
 	return cv.b, cv.typ == booleanType
 }
 
-// Interface returns the specific value of Value without specifying its type, useful for functions like fmt.Printf
-// which can use variables with unknown types.
+// Interface returns the specific value of Value without specifying its type,
+// useful for functions like fmt.Printf which can use variables with unknown
+// types.
 func (cv Value) Interface() interface{} {
 	switch cv.typ {
 	case stringType:

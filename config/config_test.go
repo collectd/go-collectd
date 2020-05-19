@@ -33,7 +33,7 @@ func (di *doubleInt) UnmarshalConfig(block Block) error {
 			len(block.Values), len(block.Children))
 	}
 
-	n, ok := block.Values[0].Number()
+	n, ok := block.Values[0].Float64()
 	if !ok {
 		return fmt.Errorf("got a %T, want a number", block.Values[0].Interface())
 	}

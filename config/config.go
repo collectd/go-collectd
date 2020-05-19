@@ -139,7 +139,7 @@ func (b *Block) Merge(other Block) error {
 func (b *Block) Unmarshal(v interface{}) error {
 	// If the target supports unmarshalling let it
 	if u, ok := v.(Unmarshaler); ok {
-		return u.UnmarshalConfig(v)
+		return u.UnmarshalConfig(*b)
 	}
 
 	// Sanity check value of the interface
@@ -229,5 +229,5 @@ func storeStructConfigValues(cvs []Value, v reflect.Value) error {
 
 // Unmarshaler is the interface implemented by types that can unmarshal a Block representation of themselves.
 type Unmarshaler interface {
-	UnmarshalConfig(v interface{}) error
+	UnmarshalConfig(Block) error
 }

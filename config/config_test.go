@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -19,6 +20,24 @@ type dstConf struct {
 type dstConf3 struct {
 	Args string
 	Host []dstConf2
+}
+
+// doubleInt implements the Unmarshaler interface to double the values on assignment.
+type doubleInt int
+
+func (di *doubleInt) UnmarshalConfig(block Block) error {
+	if len(block.Values) != 1 || len(block.Children) != 0 {
+		return fmt.Errorf("got %d values and %d children, want scalar value",
+			len(block.Values), len(block.Children))
+	}
+
+	n, ok := block.Values[0].Number()
+	if !ok {
+		return fmt.Errorf("got a %T, want a number", block.Values[0].Interface())
+	}
+
+	*di = doubleInt(2.0 * n)
+	return nil
 }
 
 func stringPtr(s string) *string {
@@ -292,6 +311,48 @@ func TestConfig_Unmarshal(t *testing.T) {
 			dst: &struct {
 				Args        string
 				NumberValue chan struct{}
+			}{},
+			wantErr: true,
+		},
+		{
+			name: "unmarshal interface success",
+			src: Block{
+				Key:    "Plugin",
+				Values: []Value{StringValue("test")},
+				Children: []Block{
+					{
+						Key:    "Double",
+						Values: []Value{Float64Value(64)},
+					},
+				},
+			},
+			dst: &struct {
+				Args   string
+				Double doubleInt
+			}{},
+			want: &struct {
+				Args   string
+				Double doubleInt
+			}{
+				Args:   "test",
+				Double: doubleInt(128),
+			},
+		},
+		{
+			name: "unmarshal interface failure",
+			src: Block{
+				Key:    "Plugin",
+				Values: []Value{StringValue("test")},
+				Children: []Block{
+					{
+						Key:    "Double",
+						Values: []Value{StringValue("not a number"), Float64Value(64)},
+					},
+				},
+			},
+			dst: &struct {
+				Args   string
+				Double doubleInt
 			}{},
 			wantErr: true,
 		},

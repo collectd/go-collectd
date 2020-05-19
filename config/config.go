@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"math"
+	"net"
 	"reflect"
 
 	"github.com/google/go-cmp/cmp"
@@ -275,4 +276,43 @@ func storeStructConfigValues(cvs []Value, v reflect.Value) error {
 // Unmarshaler is the interface implemented by types that can unmarshal a Block representation of themselves.
 type Unmarshaler interface {
 	UnmarshalConfig(Block) error
+}
+
+// Port represents a port number in the configuration. When a configuration is
+// converted to Go types using Unmarshal, it implements special conversion
+// rules:
+// If the config option is a numeric value, it is ensured to be in the range
+// [1–65535]. If the config option is a string, it is converted to a port
+// number using "net".LookupPort (using "tcp" as network).
+type Port int
+
+// UnmarshalConfig converts b to a port number.
+func (p *Port) UnmarshalConfig(b Block) error {
+	if len(b.Values) != 1 || len(b.Children) != 0 {
+		return fmt.Errorf("option %q has to be a single scalar value", b.Key)
+	}
+
+	v := b.Values[0]
+	if f, ok := v.Float64(); ok {
+		if math.IsNaN(f) {
+			return fmt.Errorf("the value of the %q option (%v) is invalid", b.Key, f)
+		}
+		if f < 1 || f > math.MaxUint16 {
+			return fmt.Errorf("the value of the %q option (%v) is out of range", b.Key, f)
+		}
+		*p = Port(f)
+		return nil
+	}
+
+	if !v.IsString() {
+		return fmt.Errorf("the value of the %q option must be a number or a string", b.Key)
+	}
+
+	port, err := net.LookupPort("tcp", v.String())
+	if err != nil {
+		return fmt.Errorf("%s: %w", b.Key, err)
+	}
+
+	*p = Port(port)
+	return nil
 }

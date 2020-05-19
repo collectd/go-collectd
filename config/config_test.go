@@ -318,6 +318,126 @@ func TestConfig_Unmarshal(t *testing.T) {
 			}{},
 			wantErr: true,
 		},
+		{
+			name: "port numeric success",
+			src: Block{
+				Key:    "Plugin",
+				Values: []Value{StringValue("test")},
+				Children: []Block{
+					{
+						Key:    "Port",
+						Values: []Value{Float64Value(80)},
+					},
+				},
+			},
+			dst: &struct {
+				Args string
+				Port Port
+			}{},
+			want: &struct {
+				Args string
+				Port Port
+			}{
+				Args: "test",
+				Port: Port(80),
+			},
+		},
+		{
+			name: "port out of range",
+			src: Block{
+				Key:    "Plugin",
+				Values: []Value{StringValue("test")},
+				Children: []Block{
+					{
+						Key:    "Port",
+						Values: []Value{Float64Value(1 << 48)},
+					},
+				},
+			},
+			dst: &struct {
+				Args string
+				Port Port
+			}{},
+			wantErr: true,
+		},
+		{
+			name: "port not a number",
+			src: Block{
+				Key:    "Plugin",
+				Values: []Value{StringValue("test")},
+				Children: []Block{
+					{
+						Key:    "Port",
+						Values: []Value{Float64Value(math.NaN())},
+					},
+				},
+			},
+			dst: &struct {
+				Args string
+				Port Port
+			}{},
+			wantErr: true,
+		},
+		{
+			name: "port invalid type",
+			src: Block{
+				Key:    "Plugin",
+				Values: []Value{StringValue("test")},
+				Children: []Block{
+					{
+						Key:    "Port",
+						Values: []Value{BoolValue(true)},
+					},
+				},
+			},
+			dst: &struct {
+				Args string
+				Port Port
+			}{},
+			wantErr: true,
+		},
+		{
+			name: "port string success",
+			src: Block{
+				Key:    "Plugin",
+				Values: []Value{StringValue("test")},
+				Children: []Block{
+					{
+						Key:    "Port",
+						Values: []Value{StringValue("http")},
+					},
+				},
+			},
+			dst: &struct {
+				Args string
+				Port Port
+			}{},
+			want: &struct {
+				Args string
+				Port Port
+			}{
+				Args: "test",
+				Port: Port(80),
+			},
+		},
+		{
+			name: "port string failure",
+			src: Block{
+				Key:    "Plugin",
+				Values: []Value{StringValue("test")},
+				Children: []Block{
+					{
+						Key:    "Port",
+						Values: []Value{StringValue("--- invalid ---")},
+					},
+				},
+			},
+			dst: &struct {
+				Args string
+				Port Port
+			}{},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

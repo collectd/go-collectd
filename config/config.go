@@ -1,4 +1,38 @@
-package config
+/*
+Package config provides types that represent a plugin's configuration.
+
+The types provided in this package are fairly low level and correspond directly
+to types in collectd:
+
+· "Block" corresponds to "oconfig_item_t".
+
+· "Value" corresponds to "oconfig_value_t".
+
+Blocks contain a Key, and optionally Values and/or children (nested Blocks). In
+collectd's configuration, these pieces are represented as follows:
+
+	<Key "Value">
+		Child "child value"
+	</Key>
+
+In Go, this would be represented as:
+
+	Block{
+		Key: "Key",
+		Values: []Value{StringValue("Value")},
+		Children: []Block{
+			{
+				Key: "Child",
+				Values: []Value{StringValue("child value")},
+			},
+		},
+	}
+
+The recommended way to work with configurations is to define a data type
+representing the configuration, then use "Block.Unmarshal" to map the Block
+representation onto the data type.
+*/
+package config // import "collectd.org/config"
 
 import (
 	"fmt"
@@ -272,7 +306,8 @@ func storeStructConfigValues(cvs []Value, v reflect.Value) error {
 	return nil
 }
 
-// Unmarshaler is the interface implemented by types that can unmarshal a Block representation of themselves.
+// Unmarshaler is the interface implemented by types that can unmarshal a Block
+// representation of themselves.
 type Unmarshaler interface {
 	UnmarshalConfig(Block) error
 }

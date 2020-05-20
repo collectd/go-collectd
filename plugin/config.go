@@ -47,9 +47,9 @@ import (
 	"collectd.org/config"
 )
 
-func unmarshalConfigBlocks(blocks *C.oconfig_item_t, blocks_num C.int) ([]config.Block, error) {
+func unmarshalConfigBlocks(blocks *C.oconfig_item_t, blocksNum C.int) ([]config.Block, error) {
 	var ret []config.Block
-	for i := C.int(0); i < blocks_num; i++ {
+	for i := C.int(0); i < blocksNum; i++ {
 		offset := uintptr(i) * C.sizeof_oconfig_item_t
 		cBlock := (*C.oconfig_item_t)(unsafe.Pointer(uintptr(unsafe.Pointer(blocks)) + offset))
 
@@ -79,9 +79,9 @@ func unmarshalConfigBlock(block *C.oconfig_item_t) (config.Block, error) {
 	return cfg, nil
 }
 
-func unmarshalConfigValues(values *C.oconfig_value_t, values_num C.int) ([]config.Value, error) {
+func unmarshalConfigValues(values *C.oconfig_value_t, valuesNum C.int) ([]config.Value, error) {
 	var ret []config.Value
-	for i := C.int(0); i < values_num; i++ {
+	for i := C.int(0); i < valuesNum; i++ {
 		offset := uintptr(i) * C.sizeof_oconfig_value_t
 		cValue := (*C.oconfig_value_t)(unsafe.Pointer(uintptr(unsafe.Pointer(values)) + offset))
 

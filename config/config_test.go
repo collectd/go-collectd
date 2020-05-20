@@ -2,9 +2,11 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 type dstConf2 struct {
@@ -31,7 +33,7 @@ func (di *doubleInt) UnmarshalConfig(block Block) error {
 			len(block.Values), len(block.Children))
 	}
 
-	n, ok := block.Values[0].Number()
+	n, ok := block.Values[0].Float64()
 	if !ok {
 		return fmt.Errorf("got a %T, want a number", block.Values[0].Interface())
 	}
@@ -61,40 +63,20 @@ func TestConfig_Unmarshal(t *testing.T) {
 						Key: "Host",
 						Children: []Block{
 							{
-								Key: "KeepAlive",
-								Values: []Value{
-									{
-										typ: booleanType,
-										b:   true,
-									},
-								},
+								Key:    "KeepAlive",
+								Values: Values(true),
 							},
 							{
-								Key: "Expect",
-								Values: []Value{
-									{
-										typ: stringType,
-										s:   "foo",
-									},
-								},
+								Key:    "Expect",
+								Values: Values("foo"),
 							},
 							{
-								Key: "Expect",
-								Values: []Value{
-									{
-										typ: stringType,
-										s:   "bar",
-									},
-								},
+								Key:    "Expect",
+								Values: Values("bar"),
 							},
 							{
-								Key: "Hats",
-								Values: []Value{
-									{
-										typ: numberType,
-										f:   424242.42,
-									},
-								},
+								Key:    "Hats",
+								Values: Values(424242.42),
 							},
 						},
 					},
@@ -118,40 +100,20 @@ func TestConfig_Unmarshal(t *testing.T) {
 						Key: "Host",
 						Children: []Block{
 							{
-								Key: "KeepAlive",
-								Values: []Value{
-									{
-										typ: booleanType,
-										b:   true,
-									},
-								},
+								Key:    "KeepAlive",
+								Values: Values(true),
 							},
 							{
-								Key: "Expect",
-								Values: []Value{
-									{
-										typ: stringType,
-										s:   "foo",
-									},
-								},
+								Key:    "Expect",
+								Values: Values("foo"),
 							},
 							{
-								Key: "Expect",
-								Values: []Value{
-									{
-										typ: stringType,
-										s:   "bar",
-									},
-								},
+								Key:    "Expect",
+								Values: Values("bar"),
 							},
 							{
-								Key: "Hats",
-								Values: []Value{
-									{
-										typ: numberType,
-										f:   424242.42,
-									},
-								},
+								Key:    "Hats",
+								Values: Values(424242.42),
 							},
 						},
 					},
@@ -182,7 +144,7 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "block values",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: Values("test"),
 			},
 			dst: &dstConf{},
 			want: &dstConf{
@@ -193,7 +155,7 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "multiple block values",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("one"), StringValue("two")},
+				Values: Values("one", "two"),
 			},
 			dst: &struct {
 				Args []string
@@ -208,7 +170,7 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "block values but no Args field",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: Values("test"),
 			},
 			dst:     &struct{}{},
 			wantErr: true,
@@ -217,7 +179,7 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "block values with type mismatch",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("not an int")},
+				Values: Values("not an int"),
 			},
 			dst: &struct {
 				Args []int
@@ -228,7 +190,7 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "multiple block values but scalar Args field",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("one"), StringValue("two")},
+				Values: Values("one", "two"),
 			},
 			dst:     &dstConf{},
 			wantErr: true,
@@ -249,7 +211,7 @@ func TestConfig_Unmarshal(t *testing.T) {
 				Children: []Block{
 					{
 						Key:      "BlockWithErrors",
-						Values:   []Value{StringValue("have string, expect int")},
+						Values:   Values("have string, expect int"),
 						Children: make([]Block, 1),
 					},
 				},
@@ -265,7 +227,7 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "unexpected nested block",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: Values("test"),
 				Children: []Block{
 					{
 						Key:      "UnexpectedBlock",
@@ -282,11 +244,11 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "unmarshal list into scalar fails",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: Values("test"),
 				Children: []Block{
 					{
 						Key:    "ListValue",
-						Values: []Value{Float64Value(23), Float64Value(64)},
+						Values: Values(23, 64),
 					},
 				},
 			},
@@ -300,11 +262,11 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "unmarshal into channel fails",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: Values("test"),
 				Children: []Block{
 					{
 						Key:    "NumberValue",
-						Values: []Value{Float64Value(64)},
+						Values: Values(64),
 					},
 				},
 			},
@@ -318,11 +280,11 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "unmarshal interface success",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: Values("test"),
 				Children: []Block{
 					{
 						Key:    "Double",
-						Values: []Value{Float64Value(64)},
+						Values: Values(64),
 					},
 				},
 			},
@@ -342,11 +304,11 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "unmarshal interface failure",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: Values("test"),
 				Children: []Block{
 					{
 						Key:    "Double",
-						Values: []Value{StringValue("not a number"), Float64Value(64)},
+						Values: Values("not a number", 64),
 					},
 				},
 			},
@@ -369,6 +331,42 @@ func TestConfig_Unmarshal(t *testing.T) {
 				t.Errorf("%#v.Unmarshal() result differs (+got/-want):\n%s", tt.src, diff)
 			}
 		})
+	}
+}
+
+func TestValues(t *testing.T) {
+	cases := []struct {
+		in   interface{}
+		want Value
+	}{
+		// exact matches
+		{nil, Float64Value(math.NaN())},
+		{"foo", StringValue("foo")},
+		{[]byte("byte array"), StringValue("byte array")},
+		{true, BoolValue(true)},
+		{float64(42.11), Float64Value(42.11)},
+		// convertible to float64
+		{float32(12.25), Float64Value(12.25)},
+		{int(0x1F622), Float64Value(128546)},
+		{uint64(0x1F61F), Float64Value(128543)},
+		// not convertiable to float64
+		{complex(4, 1), StringValue("(4+1i)")},
+		{struct{}{}, StringValue("{}")},
+		{map[string]int{"answer": 42}, StringValue("map[answer:42]")},
+		{[]int{1, 2, 3}, StringValue("[1 2 3]")},
+	}
+
+	opts := []cmp.Option{
+		cmp.AllowUnexported(Value{}),
+		cmpopts.EquateNaNs(),
+	}
+	for _, tc := range cases {
+		got := Values(tc.in)
+		want := []Value{tc.want}
+
+		if !cmp.Equal(want, got, opts...) {
+			t.Errorf("Values(%#v) = %v, want %v", tc.in, got, want)
+		}
 	}
 }
 
@@ -395,7 +393,7 @@ func TestBlock_Merge(t *testing.T) {
 	makeBlock := func(key, value string, children []Block) Block {
 		return Block{
 			Key:      key,
-			Values:   []Value{StringValue(value)},
+			Values:   Values(value),
 			Children: children,
 		}
 	}

@@ -110,3 +110,14 @@ func Debug(v ...interface{}) error {
 func Debugf(format string, v ...interface{}) error {
 	return Debug(fmt.Sprintf(format, v...))
 }
+
+// LogWriter implements the io.Writer interface on top of collectd's logging facility.
+type LogWriter Severity
+
+// Write converts p to a string and logs it with w's severity.
+func (w LogWriter) Write(p []byte) (n int, err error) {
+	if err := log(Severity(w), string(p)); err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}

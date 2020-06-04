@@ -42,6 +42,10 @@ func (l *testLogger) Log(ctx context.Context, s plugin.Severity, msg string) {
 	l.Name, _ = plugin.Name(ctx)
 }
 
+func (l *testLogger) reset() {
+	*l = testLogger{}
+}
+
 func TestLog(t *testing.T) {
 	cases := []struct {
 		title    string
@@ -77,7 +81,7 @@ func TestLog(t *testing.T) {
 				t.Errorf("Message = %q, want %q", got, want)
 			}
 
-			*l = testLogger{}
+			l.reset()
 			tc.fmtFunc("test %d %%s", 42)
 			if got, want := l.Name, name; got != want {
 				t.Errorf("plugin.Name() = %q, want %q", got, want)
@@ -86,6 +90,18 @@ func TestLog(t *testing.T) {
 				t.Errorf("Severity = %v, want %v", got, want)
 			}
 			if got, want := l.Message, "test 42 %s"; got != want {
+				t.Errorf("Message = %q, want %q", got, want)
+			}
+
+			l.reset()
+			fmt.Fprintln(plugin.LogWriter(tc.severity), "test message:", 42)
+			if got, want := l.Name, name; got != want {
+				t.Errorf("plugin.Name() = %q, want %q", got, want)
+			}
+			if got, want := l.Severity, tc.severity; got != want {
+				t.Errorf("Severity = %v, want %v", got, want)
+			}
+			if got, want := l.Message, "test message: 42"; got != want {
 				t.Errorf("Message = %q, want %q", got, want)
 			}
 		})

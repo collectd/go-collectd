@@ -21,6 +21,8 @@ import "C"
 
 import (
 	"fmt"
+	"strings"
+	"unicode"
 	"unsafe"
 )
 
@@ -39,11 +41,14 @@ const (
 )
 
 func log(s Severity, msg string) error {
+	// Trim trailing whitespace.
+	msg = strings.TrimRightFunc(msg, unicode.IsSpace)
+
 	ptr := C.CString(msg)
 	defer C.free(unsafe.Pointer(ptr))
 
 	_, err := C.wrap_plugin_log(C.int(s), ptr)
-	return err
+	return wrapCError(0, err, "plugin_log")
 }
 
 // Error logs an error using plugin_log(). Arguments are handled in the manner

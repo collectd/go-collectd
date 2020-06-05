@@ -19,11 +19,11 @@ In Go, this would be represented as:
 
 	Block{
 		Key: "Key",
-		Values: []Value{StringValue("Value")},
+		Values: []Value{String("Value")},
 		Children: []Block{
 			{
 				Key: "Child",
-				Values: []Value{StringValue("child value")},
+				Values: []Value{String("child value")},
 			},
 		},
 	}
@@ -62,14 +62,14 @@ type Value struct {
 	b   bool
 }
 
-// StringValue returns a new string Value.
-func StringValue(v string) Value { return Value{typ: stringType, s: v} }
+// String returns a new string Value.
+func String(v string) Value { return Value{typ: stringType, s: v} }
 
-// Float64Value returns a new float64 Value.
-func Float64Value(v float64) Value { return Value{typ: numberType, f: v} }
+// Float64 returns a new float64 Value.
+func Float64(v float64) Value { return Value{typ: numberType, f: v} }
 
-// BoolValue returns a new bool Value.
-func BoolValue(v bool) Value { return Value{typ: booleanType, b: v} }
+// Bool returns a new bool Value.
+func Bool(v bool) Value { return Value{typ: booleanType, b: v} }
 
 // Values allocates and initializes a []Value slice. "string", "float64", and
 // "bool" are mapped directly. "[]byte" is converted to a string. Numeric types
@@ -79,20 +79,20 @@ func Values(values ...interface{}) []Value {
 	var ret []Value
 	for _, v := range values {
 		if v == nil {
-			ret = append(ret, Float64Value(math.NaN()))
+			ret = append(ret, Float64(math.NaN()))
 			continue
 		}
 
 		// check for exact matches first.
 		switch v := v.(type) {
 		case string:
-			ret = append(ret, StringValue(v))
+			ret = append(ret, String(v))
 			continue
 		case []byte:
-			ret = append(ret, StringValue(string(v)))
+			ret = append(ret, String(string(v)))
 			continue
 		case bool:
-			ret = append(ret, BoolValue(v))
+			ret = append(ret, Bool(v))
 			continue
 		}
 
@@ -103,12 +103,12 @@ func Values(values ...interface{}) []Value {
 		)
 		if valueType.ConvertibleTo(float64Type) {
 			v := reflect.ValueOf(v).Convert(float64Type).Interface().(float64)
-			ret = append(ret, Float64Value(v))
+			ret = append(ret, Float64(v))
 			continue
 		}
 
 		// Last resort: convert to a string using the "fmt" package:
-		ret = append(ret, StringValue(fmt.Sprintf("%v", v)))
+		ret = append(ret, String(fmt.Sprintf("%v", v)))
 	}
 	return ret
 }
@@ -117,11 +117,11 @@ func Values(values ...interface{}) []Value {
 func (cv Value) GoString() string {
 	switch cv.typ {
 	case stringType:
-		return fmt.Sprintf("config.StringValue(%q)", cv.s)
+		return fmt.Sprintf("config.String(%q)", cv.s)
 	case numberType:
-		return fmt.Sprintf("config.Float64Value(%v)", cv.f)
+		return fmt.Sprintf("config.Float64(%v)", cv.f)
 	case booleanType:
-		return fmt.Sprintf("config.BoolValue(%v)", cv.b)
+		return fmt.Sprintf("config.Bool(%v)", cv.b)
 	}
 	return "<invalid config.Value>"
 }

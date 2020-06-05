@@ -594,3 +594,36 @@ func TestBlock_Merge(t *testing.T) {
 		})
 	}
 }
+
+func TestBlock_MarshalText(t *testing.T) {
+	b := Block{
+		Key: "myPlugin",
+		Children: []Block{
+			{
+				Key:    "Listen",
+				Values: Values("localhost", 8080),
+				Children: []Block{
+					{
+						Key:    "KeepAlive",
+						Values: Values(true),
+					},
+				},
+			},
+		},
+	}
+
+	data, err := b.MarshalText()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := `<myPlugin>
+  <Listen "localhost" 8080>
+    KeepAlive true
+  </Listen>
+</myPlugin>
+`
+	if diff := cmp.Diff(want, string(data)); diff != "" {
+		t.Errorf("MarshalText() differs (-got/+want):\n%s", diff)
+	}
+}

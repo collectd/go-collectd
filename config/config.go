@@ -35,10 +35,12 @@ representation onto the data type.
 package config // import "collectd.org/config"
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"net"
 	"reflect"
+	"strings"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -311,6 +313,55 @@ func storeStructConfigValues(cvs []Value, v reflect.Value) error {
 // representation of themselves.
 type Unmarshaler interface {
 	UnmarshalConfig(Block) error
+}
+
+// MarshalText produces a text version of Block. The result is parseable by collectd.
+// Implements the "encoding".TextMarshaler interface.
+func (b *Block) MarshalText() ([]byte, error) {
+	return b.marshalText("")
+}
+
+func (b *Block) marshalText(prefix string) ([]byte, error) {
+	var buf bytes.Buffer
+
+	values, err := valuesMarshalText(b.Values)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(b.Children) == 0 {
+		fmt.Fprintf(&buf, "%s%s%s\n", prefix, b.Key, values)
+		return buf.Bytes(), nil
+	}
+
+	fmt.Fprintf(&buf, "%s<%s%s>\n", prefix, b.Key, values)
+	for _, c := range b.Children {
+		text, err := c.marshalText(prefix + "  ")
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(text)
+	}
+	fmt.Fprintf(&buf, "%s</%s>\n", prefix, b.Key)
+
+	return buf.Bytes(), nil
+}
+
+func valuesMarshalText(values []Value) (string, error) {
+	var b strings.Builder
+
+	for _, v := range values {
+		switch v := v.Interface().(type) {
+		case string:
+			fmt.Fprintf(&b, " %q", v)
+		case float64, bool:
+			fmt.Fprintf(&b, " %v", v)
+		default:
+			return "", fmt.Errorf("unexpected value type: %T", v)
+		}
+	}
+
+	return b.String(), nil
 }
 
 // Port represents a port number in the configuration. When a configuration is

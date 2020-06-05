@@ -21,6 +21,8 @@ import "C"
 
 import (
 	"fmt"
+	"strings"
+	"unicode"
 	"unsafe"
 )
 
@@ -39,11 +41,14 @@ const (
 )
 
 func log(s Severity, msg string) error {
+	// Trim trailing whitespace.
+	msg = strings.TrimRightFunc(msg, unicode.IsSpace)
+
 	ptr := C.CString(msg)
 	defer C.free(unsafe.Pointer(ptr))
 
 	_, err := C.wrap_plugin_log(C.int(s), ptr)
-	return err
+	return wrapCError(0, err, "plugin_log")
 }
 
 // Error logs an error using plugin_log(). Arguments are handled in the manner
@@ -104,4 +109,15 @@ func Debug(v ...interface{}) error {
 // the manner of fmt.Printf.
 func Debugf(format string, v ...interface{}) error {
 	return Debug(fmt.Sprintf(format, v...))
+}
+
+// LogWriter implements the io.Writer interface on top of collectd's logging facility.
+type LogWriter Severity
+
+// Write converts p to a string and logs it with w's severity.
+func (w LogWriter) Write(p []byte) (n int, err error) {
+	if err := log(Severity(w), string(p)); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }

@@ -106,19 +106,19 @@ func unmarshalConfigValue(value *C.oconfig_value_t) (config.Value, error) {
 		if err := wrapCError(0, err, "config_value_string"); err != nil {
 			return config.Value{}, err
 		}
-		return config.StringValue(C.GoString(s)), nil
+		return config.String(C.GoString(s)), nil
 	case C.OCONFIG_TYPE_NUMBER:
 		n, err := C.config_value_number(value)
 		if err := wrapCError(0, err, "config_value_number"); err != nil {
 			return config.Value{}, err
 		}
-		return config.Float64Value(float64(n)), nil
+		return config.Float64(float64(n)), nil
 	case C.OCONFIG_TYPE_BOOLEAN:
 		b, err := C.config_value_boolean(value)
 		if err := wrapCError(0, err, "config_value_boolean"); err != nil {
 			return config.Value{}, err
 		}
-		return config.BoolValue(bool(b)), nil
+		return config.Bool(bool(b)), nil
 	default:
 		return config.Value{}, fmt.Errorf("unknown config value type: %d", typ)
 	}

@@ -322,11 +322,11 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "port numeric success",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: []Value{String("test")},
 				Children: []Block{
 					{
 						Key:    "Port",
-						Values: []Value{Float64Value(80)},
+						Values: []Value{Float64(80)},
 					},
 				},
 			},
@@ -346,11 +346,11 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "port out of range",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: []Value{String("test")},
 				Children: []Block{
 					{
 						Key:    "Port",
-						Values: []Value{Float64Value(1 << 48)},
+						Values: []Value{Float64(1 << 48)},
 					},
 				},
 			},
@@ -364,11 +364,11 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "port not a number",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: []Value{String("test")},
 				Children: []Block{
 					{
 						Key:    "Port",
-						Values: []Value{Float64Value(math.NaN())},
+						Values: []Value{Float64(math.NaN())},
 					},
 				},
 			},
@@ -382,11 +382,11 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "port invalid type",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: []Value{String("test")},
 				Children: []Block{
 					{
 						Key:    "Port",
-						Values: []Value{BoolValue(true)},
+						Values: []Value{Bool(true)},
 					},
 				},
 			},
@@ -400,11 +400,11 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "port string success",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: []Value{String("test")},
 				Children: []Block{
 					{
 						Key:    "Port",
-						Values: []Value{StringValue("http")},
+						Values: []Value{String("http")},
 					},
 				},
 			},
@@ -424,11 +424,11 @@ func TestConfig_Unmarshal(t *testing.T) {
 			name: "port string failure",
 			src: Block{
 				Key:    "Plugin",
-				Values: []Value{StringValue("test")},
+				Values: []Value{String("test")},
 				Children: []Block{
 					{
 						Key:    "Port",
-						Values: []Value{StringValue("--- invalid ---")},
+						Values: []Value{String("--- invalid ---")},
 					},
 				},
 			},
@@ -460,20 +460,20 @@ func TestValues(t *testing.T) {
 		want Value
 	}{
 		// exact matches
-		{nil, Float64Value(math.NaN())},
-		{"foo", StringValue("foo")},
-		{[]byte("byte array"), StringValue("byte array")},
-		{true, BoolValue(true)},
-		{float64(42.11), Float64Value(42.11)},
+		{nil, Float64(math.NaN())},
+		{"foo", String("foo")},
+		{[]byte("byte array"), String("byte array")},
+		{true, Bool(true)},
+		{float64(42.11), Float64(42.11)},
 		// convertible to float64
-		{float32(12.25), Float64Value(12.25)},
-		{int(0x1F622), Float64Value(128546)},
-		{uint64(0x1F61F), Float64Value(128543)},
+		{float32(12.25), Float64(12.25)},
+		{int(0x1F622), Float64(128546)},
+		{uint64(0x1F61F), Float64(128543)},
 		// not convertiable to float64
-		{complex(4, 1), StringValue("(4+1i)")},
-		{struct{}{}, StringValue("{}")},
-		{map[string]int{"answer": 42}, StringValue("map[answer:42]")},
-		{[]int{1, 2, 3}, StringValue("[1 2 3]")},
+		{complex(4, 1), String("(4+1i)")},
+		{struct{}{}, String("{}")},
+		{map[string]int{"answer": 42}, String("map[answer:42]")},
+		{[]int{1, 2, 3}, String("[1 2 3]")},
 	}
 
 	opts := []cmp.Option{
@@ -495,9 +495,9 @@ func TestValue_Interface(t *testing.T) {
 		v    Value
 		want interface{}
 	}{
-		{StringValue("foo"), "foo"},
-		{Float64Value(42.0), 42.0},
-		{BoolValue(true), true},
+		{String("foo"), "foo"},
+		{Float64(42.0), 42.0},
+		{Bool(true), true},
 		{Value{}, ""}, // zero value is a string
 	}
 

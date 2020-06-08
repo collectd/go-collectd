@@ -697,8 +697,9 @@ type Configurer interface {
 	Configure(context.Context, config.Block) error
 }
 
-// Configurers are registered once but Configs may be received multiple times and merged together before unmarshalling,
-// so they're tracked together for a convenient Unmarshal call.
+// Configurers are registered once but Configs may be received multiple times
+// and merged together before unmarshalling, so they're tracked together for a
+// convenient Unmarshal call.
 type configFunc struct {
 	Configurer
 	cfg config.Block
@@ -710,6 +711,13 @@ var (
 )
 
 // RegisterConfig registers a configuration-receiving function with the daemon.
+//
+// c.Configure is called exactly once after the entire configuration has been
+// read. If there are multiple configuration blocks for the plugin, they will
+// be merged into a single block using "collectd.org/config".Block.Merge.
+//
+// If no configuration is found for "name", c.Configure is still called with a
+// zero-valued config.Block.
 func RegisterConfig(name string, c Configurer) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))

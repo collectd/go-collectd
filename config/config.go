@@ -199,11 +199,15 @@ type Block struct {
 	Children []Block
 }
 
+// IsZero returns true if b is the Zero value.
+func (b Block) IsZero() bool {
+	return b.Key == "" && len(b.Values) == 0 && len(b.Children) == 0
+}
+
 // Merge appends other's Children to b's Children. If Key or Values differ, an
 // error is returned.
 func (b *Block) Merge(other Block) error {
-	// If b is the zero value, we set it to other.
-	if b.Key == "" && b.Values == nil && b.Children == nil {
+	if b.IsZero() {
 		*b = other
 		return nil
 	}

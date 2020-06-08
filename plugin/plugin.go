@@ -779,15 +779,13 @@ func wrap_configure_callback(ci *C.oconfig_item_t) C.int {
 
 //export dispatch_configurations
 func dispatch_configurations() C.int {
-	var ret C.int
 	for name, f := range configureFuncs {
 		ctx := withName(context.Background(), name)
 		if err := f.Configure(ctx, f.cfg); err != nil {
 			Errorf("%s plugin: Configure() failed: %v", name, err)
-			ret = -1
 		}
 	}
-	return ret
+	return 0
 }
 
 func wrapCError(status C.int, err error, name string) error {

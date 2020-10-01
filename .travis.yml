@@ -2,6 +2,10 @@
 dist: bionic
 language: go
 
+arch:
+  - amd64
+  - ppc64le
+
 go:
   - "stable"
   # - "oldstable" # https://github.com/travis-ci/gimme/issues/179

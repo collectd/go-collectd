@@ -3,6 +3,7 @@ package api // import "collectd.org/api"
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -102,6 +103,48 @@ func (vl *ValueList) DSName(index int) string {
 	}
 
 	return "value"
+}
+
+// Check does a sanity check on vl and returns any errors it finds.
+func (vl *ValueList) Check() error {
+	var err error
+
+	if vl.Host == "" {
+		err = multierr.Append(err, errors.New("Host is unset"))
+	}
+	if vl.Plugin == "" {
+		err = multierr.Append(err, errors.New("Plugin is unset"))
+	}
+	if strings.ContainsRune(vl.Plugin, '-') {
+		err = multierr.Append(err, errors.New("Plugin contains '-'"))
+	}
+	if vl.Type == "" {
+		err = multierr.Append(err, errors.New("Type is unset"))
+	}
+	if strings.ContainsRune(vl.Type, '-') {
+		err = multierr.Append(err, errors.New("Type contains '-'"))
+	}
+	if vl.Interval == 0 {
+		err = multierr.Append(err, errors.New("Interval is unset"))
+	}
+	if len(vl.Values) == 0 {
+		err = multierr.Append(err, errors.New("Values is unset"))
+	}
+	if n, v := len(vl.DSNames), len(vl.Values); n != 0 && v != 0 && n != v {
+		err = multierr.Append(err, fmt.Errorf("number of values (%d) and number of DS names (%d) don't match", v, n))
+	}
+
+	nameCount := make(map[string]int)
+	for _, name := range vl.DSNames {
+		nameCount[name] = nameCount[name] + 1
+	}
+	for name, count := range nameCount {
+		if count != 1 {
+			err = multierr.Append(err, fmt.Errorf("data source name %q is not unique", name))
+		}
+	}
+
+	return err
 }
 
 // Clone returns a copy of vl.

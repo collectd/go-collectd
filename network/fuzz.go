@@ -4,6 +4,7 @@ package network // import "collectd.org/network"
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 )
 
@@ -21,11 +22,13 @@ func (fl fuzzLookup) Password(user string) (string, error) {
 // Fuzz is used by the https://github.com/dvyukov/go-fuzz framework
 // It's method signature must match the prescribed format and it is expected to panic upon failure
 // Usage:
-//   $ go-fuzz-build collectd.org/network
-//   $ mkdir -p /tmp/fuzzwork/corpus
-//   $ cp network/testdata/packet1.bin /tmp/fuzzwork/corpus
-//   $ go-fuzz -bin=./network-fuzz.zip -workdir=/tmp/fuzzwork
+//
+//	$ go-fuzz-build collectd.org/network
+//	$ mkdir -p /tmp/fuzzwork/corpus
+//	$ cp network/testdata/packet1.bin /tmp/fuzzwork/corpus
+//	$ go-fuzz -bin=./network-fuzz.zip -workdir=/tmp/fuzzwork
 func Fuzz(data []byte) int {
+	ctx := context.Background()
 
 	// deserialize
 	d1, err := Parse(data, ParseOpts{
@@ -40,7 +43,7 @@ func Fuzz(data []byte) int {
 
 	// serialize
 	s1 := NewBuffer(0)
-	if err := s1.Write(d1[0]); err != nil {
+	if err := s1.Write(ctx, d1[0]); err != nil {
 		panic(err)
 	}
 
@@ -55,7 +58,7 @@ func Fuzz(data []byte) int {
 
 	// serialize
 	s2 := NewBuffer(0)
-	if err := s2.Write(d2[0]); err != nil {
+	if err := s2.Write(ctx, d2[0]); err != nil {
 		panic(err)
 	}
 

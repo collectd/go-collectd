@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"collectd.org/meta"
-	"go.uber.org/multierr"
 )
 
 // Value represents either a Gauge or a Derive. It is Go's equivalent to the C
@@ -107,31 +106,31 @@ func (vl *ValueList) DSName(index int) string {
 
 // Check does a sanity check on vl and returns any errors it finds.
 func (vl *ValueList) Check() error {
-	var err error
+	var errs []error
 
 	if vl.Host == "" {
-		err = multierr.Append(err, errors.New("Host is unset"))
+		errs = append(errs, errors.New("Host is unset"))
 	}
 	if vl.Plugin == "" {
-		err = multierr.Append(err, errors.New("Plugin is unset"))
+		errs = append(errs, errors.New("Plugin is unset"))
 	}
 	if strings.ContainsRune(vl.Plugin, '-') {
-		err = multierr.Append(err, errors.New("Plugin contains '-'"))
+		errs = append(errs, errors.New("Plugin contains '-'"))
 	}
 	if vl.Type == "" {
-		err = multierr.Append(err, errors.New("Type is unset"))
+		errs = append(errs, errors.New("Type is unset"))
 	}
 	if strings.ContainsRune(vl.Type, '-') {
-		err = multierr.Append(err, errors.New("Type contains '-'"))
+		errs = append(errs, errors.New("Type contains '-'"))
 	}
 	if vl.Interval == 0 {
-		err = multierr.Append(err, errors.New("Interval is unset"))
+		errs = append(errs, errors.New("Interval is unset"))
 	}
 	if len(vl.Values) == 0 {
-		err = multierr.Append(err, errors.New("Values is unset"))
+		errs = append(errs, errors.New("Values is unset"))
 	}
 	if n, v := len(vl.DSNames), len(vl.Values); n != 0 && v != 0 && n != v {
-		err = multierr.Append(err, fmt.Errorf("number of values (%d) and number of DS names (%d) don't match", v, n))
+		errs = append(errs, fmt.Errorf("number of values (%d) and number of DS names (%d) don't match", v, n))
 	}
 
 	nameCount := make(map[string]int)
@@ -140,11 +139,11 @@ func (vl *ValueList) Check() error {
 	}
 	for name, count := range nameCount {
 		if count != 1 {
-			err = multierr.Append(err, fmt.Errorf("data source name %q is not unique", name))
+			errs = append(errs, fmt.Errorf("data source name %q is not unique", name))
 		}
 	}
 
-	return err
+	return errors.Join(errs...)
 }
 
 // Clone returns a copy of vl.
@@ -235,17 +234,18 @@ func (f Fanout) Write(ctx context.Context, vl *ValueList) error {
 		close(ch)
 	}()
 
-	var errs error
+	var errs []error
 	for {
 		select {
 		case err, ok := <-ch:
 			if !ok {
 				// channel closed, all goroutines done
-				return errs
+				return errors.Join(errs...)
 			}
-			errs = multierr.Append(errs, err)
+			errs = append(errs, err)
 		case <-ctx.Done():
-			return multierr.Append(errs, ctx.Err())
+			errs = append(errs, ctx.Err())
+			return errors.Join(errs...)
 		}
 	}
 }
